@@ -2,4 +2,5 @@ test/memifAddDel/memifAddDel
 test/vhostUserAddDel/vhostUserAddDel
 vendor/git.fd.io/govpp.git/core/bin_api/
 vendor/git.fd.io/govpp.git/cmd/binapi-generator/binapi-generator
+vpp-app/vpp-app
 

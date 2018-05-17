@@ -29,9 +29,9 @@ import (
 	_ "github.com/sirupsen/logrus"
 	_ "git.fd.io/govpp.git/core"
 
-	"github.com/Billy99/vpp-agent/infra"
-	"github.com/Billy99/vpp-agent/vhostuser"
-	"github.com/Billy99/vpp-agent/bridge"
+	"github.com/Billy99/vpp-agent/api/infra"
+	"github.com/Billy99/vpp-agent/api/vhostuser"
+	"github.com/Billy99/vpp-agent/api/bridge"
 )
 
 //
