@@ -35,11 +35,11 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/intel/vhost-user-net-plugin/usrsptypes"
+	"github.com/Billy99/user-space-net-plugin/usrsptypes"
 
-	"github.com/Billy99/vpp-agent/api/infra"
-	"github.com/Billy99/vpp-agent/api/memif"
-	"github.com/Billy99/vpp-agent/api/bridge"
+	"github.com/Billy99/cnivpp/api/infra"
+	"github.com/Billy99/cnivpp/api/memif"
+	"github.com/Billy99/cnivpp/api/bridge"
 )
 
 //

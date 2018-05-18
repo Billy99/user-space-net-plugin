@@ -30,7 +30,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Billy99/vpp-agent/cnivpp"
+	"github.com/Billy99/cnivpp/cnivpp"
 )
 
 //

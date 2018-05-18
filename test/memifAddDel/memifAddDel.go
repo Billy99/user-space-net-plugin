@@ -29,9 +29,9 @@ import (
 	_ "github.com/sirupsen/logrus"
 	_ "git.fd.io/govpp.git/core"
 
-	"github.com/Billy99/vpp-agent/api/infra"
-	"github.com/Billy99/vpp-agent/api/memif"
-	"github.com/Billy99/vpp-agent/api/bridge"
+	"github.com/Billy99/cnivpp/api/infra"
+	"github.com/Billy99/cnivpp/api/memif"
+	"github.com/Billy99/cnivpp/api/bridge"
 )
 
 //

@@ -27,7 +27,7 @@ import (
 	"git.fd.io/govpp.git/core/bin_api/memif"
 	"git.fd.io/govpp.git/core/bin_api/interfaces"
 
-	"github.com/Billy99/vpp-agent/api/interface"
+	"github.com/Billy99/cnivpp/api/interface"
 )
 
 
