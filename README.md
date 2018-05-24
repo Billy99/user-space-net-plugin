@@ -38,6 +38,7 @@ library:
 
 ## User Space CNI Plugin
 To get and build the **userspace** plugin:
+```
    cd $GOPATH/src/
    go get github.com/Billy99/user-space-net-plugin
    cd github.com/Billy99/user-space-net-plugin
