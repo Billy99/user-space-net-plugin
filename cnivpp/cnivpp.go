@@ -29,17 +29,14 @@ package cnivpp
 import (
 	"fmt"
 	"errors"
-	"encoding/json"
-	"io/ioutil"
-	"io"
-	"os"
-	"path/filepath"
 
 	"github.com/Billy99/user-space-net-plugin/usrsptypes"
 
 	"github.com/Billy99/cnivpp/api/infra"
 	"github.com/Billy99/cnivpp/api/memif"
 	"github.com/Billy99/cnivpp/api/bridge"
+
+	"github.com/Billy99/cnivpp/vppdb"
 )
 
 //
@@ -50,19 +47,11 @@ const (
 	dbgMemif = true
 )
 
-const defaultBaseCNIDir = "/var/run/vpp/cni"
-const defaultLocalCNIDir = "/var/run/vpp/cni/data"
-
 
 //
 // Types
 //
 
-// This structure is a union of all the VPP data (for all types of
-// interfaces) that need to be preserved for later use.
-type vppSavedData struct {
-        SwIfIndex  uint32 `json:"swIfIndex"`     // Software Index, used to access the created interface
-}
 
 
 //
@@ -70,7 +59,7 @@ type vppSavedData struct {
 //
 func CniVppAdd(conf *usrsptypes.NetConf, containerID string) error {
 	var err error
-	var data vppSavedData
+	var data vppdb.VppSavedData
 
 	if conf.UserSpaceConf.Location == "local" {
 		if conf.UserSpaceConf.Type == "memif" {
@@ -85,13 +74,13 @@ func CniVppAdd(conf *usrsptypes.NetConf, containerID string) error {
 			return err
 		}
 
-		err = saveVppConfig(conf, containerID, &data)
+		err = vppdb.SaveVppConfig(conf, containerID, &data)
 
 		if err != nil {
 			return err
 		}
 	} else if conf.UserSpaceConf.Location == "remote" {
-		return saveRemoteConfig(conf, containerID)
+		return vppdb.SaveRemoteConfig(conf, containerID)
 	} else {
 		return errors.New("ERROR: Unknown Location Type:" + conf.UserSpaceConf.Location)
 	}
@@ -100,10 +89,10 @@ func CniVppAdd(conf *usrsptypes.NetConf, containerID string) error {
 }
 
 func CniVppDel(conf *usrsptypes.NetConf, containerID string) error {
-	var data vppSavedData
+	var data vppdb.VppSavedData
 
 	// Retrived squirreled away data needed for processing delete
-	err := loadVppConfig(conf, containerID, &data)
+	err := vppdb.LoadVppConfig(conf, containerID, &data)
 
 	if err != nil {
 		return err
@@ -119,7 +108,7 @@ func CniVppDel(conf *usrsptypes.NetConf, containerID string) error {
 			return errors.New("ERROR: Unknown UserSpace Type:" + conf.UserSpaceConf.Type)
 		}
 	} else if conf.UserSpaceConf.Location == "remote" {
-		cleanupRemoteConfig(conf,containerID)
+		vppdb.CleanupRemoteConfig(conf,containerID)
 	} else {
 		return errors.New("ERROR: Unknown Location Type:" + conf.UserSpaceConf.Location)
 	}
@@ -129,14 +118,27 @@ func CniVppDel(conf *usrsptypes.NetConf, containerID string) error {
 
 
 func CniContainerConfig() (bool, error) {
-	return findRemoteConfig()
+
+	found, conf, err := vppdb.FindRemoteConfig()
+
+	if err == nil {
+		if found {
+			err = CniVppAdd(&conf, "")
+
+			if err != nil {
+				fmt.Println(err)
+			}
+		}
+	}
+
+	return found, err
 }
 
 
 //
 // Local Functions
 //
-func addLocalDeviceMemif(conf *usrsptypes.NetConf, data *vppSavedData) (err error) {
+func addLocalDeviceMemif(conf *usrsptypes.NetConf, data *vppdb.VppSavedData) (err error) {
 	var vppCh vppinfra.ConnectionData
 
 
@@ -235,7 +237,7 @@ func addLocalDeviceMemif(conf *usrsptypes.NetConf, data *vppSavedData) (err erro
 	return
 }
 
-func delLocalDeviceMemif(conf *usrsptypes.NetConf, data *vppSavedData) (err error) {
+func delLocalDeviceMemif(conf *usrsptypes.NetConf, data *vppdb.VppSavedData) (err error) {
 
 	var vppCh vppinfra.ConnectionData
 
@@ -289,203 +291,6 @@ func delLocalDeviceMemif(conf *usrsptypes.NetConf, data *vppSavedData) (err erro
 			vppmemif.DumpMemif(vppCh.Ch)
 			vppmemif.DumpMemifSocket(vppCh.Ch)
 		}
-	}
-
-	return
-}
-
-// saveVppConfig() - Some data needs to be saved, like the swIfIndex, or cmdDel().
-//  This function squirrels the data away to be retrieved later.
-func saveVppConfig(conf *usrsptypes.NetConf, containerID string, data *vppSavedData) error {
-
-	// Current implementation is to write data to a file with the name:
-	//   /var/run/vpp/cni/data/local-<If0name>.json
-	//   OLD: /var/run/vpp/cni/<ContainerId>/local-<If0name>.json
-
-        fileName := fmt.Sprintf("local-%s.json", conf.If0name)
-        if dataBytes, err := json.Marshal(data); err == nil {
-                sockDir := defaultLocalCNIDir
-                // OLD: sockDir := filepath.Join(defaultCNIDir, containerID)
-
-                if _, err := os.Stat(sockDir); err != nil {
-                        if os.IsNotExist(err) {
-                                if err := os.MkdirAll(sockDir, 0700); err != nil {
-                                        return err
-                                }
-                        } else {
-                                return err
-                        }
-                }
-
-                path := filepath.Join(sockDir, fileName)
-
-                fmt.Printf("SAVE FILE: swIfIndex=%d path=%s dataBytes=%s\n", data.SwIfIndex, path, dataBytes)
-                return ioutil.WriteFile(path, dataBytes, 0644)
-        } else {
-                return fmt.Errorf("ERROR: serializing delegate VPP saved data: %v", err)
-        }
-}
-
-func loadVppConfig(conf *usrsptypes.NetConf, containerID string, data *vppSavedData) (error) {
-
-	fileName := fmt.Sprintf("local-%s.json", conf.If0name)
-	sockDir := defaultLocalCNIDir
-	// OLD: sockDir := filepath.Join(defaultCNIDir, containerID)
-	path := filepath.Join(sockDir, fileName)
-
-	if _, err := os.Stat(path); err == nil {
-		if dataBytes, err := ioutil.ReadFile(path); err == nil {
-			if err = json.Unmarshal(dataBytes, data); err != nil {
-				return fmt.Errorf("ERROR: Failed to parse VPP saved data: %v", err)
-			}
-		} else {
-			return fmt.Errorf("ERROR: Failed to read VPP saved data: %v", err)
-		}
-
-        } else {
-		path = "";
-	}
-
-	// Delete file (and directory if empty)
-	fileCleanup(sockDir, path)
-
-        return nil
-}
-
-
-//
-// Functions for processing Remote Configs (configs for within a Container)
-//
-
-// saveRemoteConfig() - When a config read on the host is for a Container,
-//      flip the location and write the data to a file. When the Container
-//      comes up, it will read the file via () and delete the file. This function
-//      writes the file.
-func saveRemoteConfig(conf *usrsptypes.NetConf, containerID string) error {
-
-	// Current implementation is to write data to a file with the name:
-	//   /var/run/vpp/cni/<ContainerId>/remote-<If0name>.json
-
-	fileName := fmt.Sprintf("remote-%s.json", conf.If0name)
-	sockDir  := filepath.Join(defaultBaseCNIDir, containerID)
-	path     := filepath.Join(sockDir, fileName)
-
-	if _, err := os.Stat(sockDir); err != nil {
-		if os.IsNotExist(err) {
-			if err := os.MkdirAll(sockDir, 0700); err != nil {
-				return err
-			}
-		} else {
-			return err
-		}
-	}
-
-	conf.UserSpaceConf.Location = "local"
-        dataBytes, err := json.Marshal(conf)
-	conf.UserSpaceConf.Location = "remote"
-        
-	if err == nil {
-                fmt.Printf("SAVE FILE: path=%s dataBytes=%s", path, dataBytes)
-                return ioutil.WriteFile(path, dataBytes, 0644)
-        } else {
-                return fmt.Errorf("ERROR: serializing REMOTE NetConf data: %v", err)
-        }
-}
-
-
-func findRemoteConfig() (bool, error) {
-	var found bool = false
-	var conf usrsptypes.NetConf
-
-	//sockDir  := filepath.Join(defaultCNIDir, containerID)
-	//sockDir  := defaultCNIDir
-	sockDir  := filepath.Join(defaultLocalCNIDir, "remote-*.json")
-
-	fmt.Println(sockDir)
-	matches, err := filepath.Glob(sockDir)
-
-	if err != nil {
-		fmt.Println(err)
-		return found, err
-	}
-
-	fmt.Println(sockDir)
-	fmt.Println(matches)
-
-	for i := range matches {
-                fmt.Printf("PROCESSING FILE: path=%s\n", matches[i])
-
-		found = true
-
-		if dataBytes, err := ioutil.ReadFile(matches[i]); err == nil {
-			if err = json.Unmarshal(dataBytes, &conf); err != nil {
-				return found, fmt.Errorf("failed to parse Remote config: %v", err)
-			}
-
-			// Delete file (and directory if empty)
-			fileCleanup("", matches[i])
-
-
-			// Process data
-			err = CniVppAdd(&conf, "")
-
-			if err != nil {
-				fmt.Println(err)
-				return found, err
-			}
- 		} else {
-			return found, fmt.Errorf("failed to read Remote config: %v", err)
-		}
-	}
-	
-	return found,err
-}
-
-// cleanupRemoteConfig() - When a config read on the host is for a Container,
-//      the data to a file. This function cleans up the remaining files.
-func cleanupRemoteConfig(conf *usrsptypes.NetConf, containerID string) {
-
-	// Current implementation is to write data to a file with the name:
-	//   /var/run/vpp/cni/<ContainerId>/remote-<If0name>.json
-
-	sockDir  := filepath.Join(defaultBaseCNIDir, containerID)
-
-	if err := os.RemoveAll(sockDir); err != nil {
-		fmt.Println(err)
-	}
-}
-
-
-//
-// Utility Functions
-//
-
-// This function deletes the input file (if provided) and the associated
-// directory (if provided) if the directory is empty.
-//  directory string - Directory file is located in, Use "" if directory
-//    should remain unchanged.
-//  filepath string - File (including directory) to be deleted. Use "" if
-//    only the directory should be deleted.
-func fileCleanup(directory string, filepath string) (err error) {
-
-	// If File is provided, delete it.
-	if filepath != "" {
-		err = os.Remove(filepath)
-		if err != nil {
-			return fmt.Errorf("ERROR: Failed to delete file: %v", err)
-		}
-	}
-
-	// If Directory is provided and it is empty, delete it.
-	if directory != "" {
-		f, dirErr := os.Open(directory)
-		if dirErr == nil {
-			 _, dirErr = f.Readdir(1)
-			if dirErr == io.EOF {
-				err = os.Remove(directory)
-			}
-		}
-		f.Close()
 	}
 
 	return
