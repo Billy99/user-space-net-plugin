@@ -7,7 +7,7 @@
 scriptpath=$GOPATH/src/github.com/containernetworking/cni/scripts
 echo $scriptpath
 
-contid=$(docker run -d --net=none tstvpp /bin/sleep 10000000)
+contid=$(docker run -d --net=none vpp-centos-userspace-cni /bin/sleep 10000000)
 pid=$(docker inspect -f '{{ .State.Pid }}' $contid)
 netnspath=/proc/$pid/ns/net
 
