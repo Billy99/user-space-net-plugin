@@ -140,13 +140,13 @@ To run script:
 
 **NOTE:** The *vpp-docker-run.sh* script mounts some volumes in the container. Change as needed:
 * *-v /var/run/vpp/cni/shared:/var/run/vpp/cni/shared:rw*
-** Default location in VPP to create sockets is */var/run/vpp/*. Socket files (memif or vhost-user)
+  * Default location in VPP to create sockets is */var/run/vpp/*. Socket files (memif or vhost-user)
 are passed to the container through a subdirectory of this base directory..
 * *-v /var/run/vpp/cni/$contid:/var/run/vpp/cni/data:rw*
-** Current implementation is to write the remote configuration into a file and share the directory
+  * Current implementation is to write the remote configuration into a file and share the directory
 with the conatiner, which is the volume mapping. Directory is currently hard coded.
 * *--device=/dev/hugepages:/dev/hugepages*
-** VPP requires hugepages, so need to map hugepoages into conatiner.
+  * VPP requires hugepages, so need to map hugepoages into conatiner.
 
 In the container, you should see the vpp-app ouput the message sequence of
 its communication with local VPP (VPP in the container) and some database
@@ -167,7 +167,7 @@ cause *vpp-centos-userspace-cni* container to start in bash and skip the script,
    cd $GOPATH/src/github.com/containernetworking/cni/scripts
    sudo CNI_PATH=$CNI_PATH GOPATH=$GOPATH ./scripts/vpp-docker-run.sh -it --privileged vpp-centos-userspace-cni bash
    
-   *Within Container:*
+   /* Within Container: */
    vpp -c /etc/vpp/startup.conf &
    vpp-app
 ```
