@@ -21,10 +21,32 @@ package vppinterface
 
 import (
 	"fmt"
+	"net"
+
+	"github.com/Billy99/user-space-net-plugin/usrsptypes"
 
 	"git.fd.io/govpp.git/api"
 	"git.fd.io/govpp.git/core/bin_api/interfaces"
 )
+
+//
+// API Functions
+//
+// Check whether generated API messages are compatible with the version
+// of VPP which the library is connected to.
+func InterfaceCompatibilityCheck(ch *api.Channel) (err error) {
+	err = ch.CheckMessageCompatibility(
+		&interfaces.SwInterfaceSetFlags{},
+		&interfaces.SwInterfaceSetFlagsReply{},
+		&interfaces.SwInterfaceAddDelAddress{},
+		&interfaces.SwInterfaceAddDelAddressReply{},
+	)
+	if err != nil {
+		fmt.Println("VPP Interface failed compatibility")
+	}
+
+	return err
+}
 
 
 // Attempt to set an interface state. isUp (1 = up, 0 = down)
@@ -37,6 +59,43 @@ func SetState(ch *api.Channel, swIfIndex uint32, isUp uint8) error {
 	}
 
 	reply := &interfaces.SwInterfaceSetFlagsReply{}
+
+	err := ch.SendRequest(req).ReceiveReply(reply)
+
+	if err != nil {
+		fmt.Println("Error:", err)
+		return err
+	}
+
+	return nil
+}
+
+
+func AddDelIpAddress(ch *api.Channel, swIfIndex uint32, isAdd uint8, ipData usrsptypes.IPDataType) error {
+
+	addr := net.ParseIP(ipData.Address)
+
+	
+	// Populate the Add Structure
+	req := &interfaces.SwInterfaceAddDelAddress{
+		SwIfIndex: swIfIndex,
+		IsAdd: isAdd, // 1 = add, 0 = delete
+		IsIpv6: ipData.IsIpv6,
+		DelAll: 0,
+		AddressLength: ipData.AddressLength,
+		//Address: []byte(ipData.Address),
+	}
+
+	if ipData.IsIpv6 == 1 {
+		req.Address = []byte(addr.To16())
+	} else {
+		req.Address = []byte(addr.To4())
+	}
+
+	fmt.Println("IP Address")
+	fmt.Println(req.Address)
+
+	reply := &interfaces.SwInterfaceAddDelAddressReply{}
 
 	err := ch.SendRequest(req).ReceiveReply(reply)
 

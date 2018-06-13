@@ -24,9 +24,6 @@ import (
 
 	"git.fd.io/govpp.git/api"
 	"git.fd.io/govpp.git/core/bin_api/vhost_user"
-	"git.fd.io/govpp.git/core/bin_api/interfaces"
-
-	"github.com/Billy99/cnivpp/api/interface"
 )
 
 
@@ -59,7 +56,6 @@ func VhostUserCompatibilityCheck(ch *api.Channel) (err error) {
 		&vhost_user.DeleteVhostUserIfReply{},
 		&vhost_user.SwInterfaceVhostUserDump{},
 		&vhost_user.SwInterfaceVhostUserDetails{},
-                &interfaces.SwInterfaceSetFlags{},
         )
         if err != nil {
                 fmt.Println("VPP vhostUser failed compatibility")
@@ -96,14 +92,6 @@ func CreateVhostUserInterface(ch *api.Channel, mode VhostUserMode, socketFile st
 		return
 	} else {
 		swIfIndex = reply.SwIfIndex
-	}
-
-
-	// Set interface to up (1)
-	err = vppinterface.SetState(ch, swIfIndex, 1)
-	if err != nil {
-		fmt.Println("Error bringing vhostUser interface UP:", err)
-		return
 	}
 
 	return

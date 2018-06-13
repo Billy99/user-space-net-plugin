@@ -48,6 +48,8 @@ import (
 //
 func main() {
 	var count int = 0
+	var processed bool = false
+	var processedCnt int = 0
 
 	for {
 		count++
@@ -59,6 +61,24 @@ func main() {
 		}
 
 		fmt.Println("LOOP", count, " - FOUND:", found)
+
+
+		//
+		// Once files have been found, wait 1 more loop and exit.
+		//
+		if found {
+			processed = true
+		}
+
+		if processed {
+			processedCnt++
+
+			if processedCnt > 1 {
+				fmt.Println("DONE: Exiting vpp-app")
+				break
+			}
+		}
+
 
 		time.Sleep(20 * time.Second) 
 	}

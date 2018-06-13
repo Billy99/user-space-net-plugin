@@ -25,9 +25,6 @@ import (
 
 	"git.fd.io/govpp.git/api"
 	"git.fd.io/govpp.git/core/bin_api/memif"
-	"git.fd.io/govpp.git/core/bin_api/interfaces"
-
-	"github.com/Billy99/cnivpp/api/interface"
 )
 
 
@@ -69,7 +66,6 @@ func MemifCompatibilityCheck(ch *api.Channel) (err error) {
                 &memif.MemifSocketFilenameDetails{},
                 &memif.MemifSocketFilenameDump{},
                 &memif.MemifDump{},
-                &interfaces.SwInterfaceSetFlags{},
         )
         if err != nil {
                 fmt.Println("VPP memif failed compatibility")
@@ -79,9 +75,7 @@ func MemifCompatibilityCheck(ch *api.Channel) (err error) {
 }
 
 
-// Attempt to create a MemIf Interface. If the associated MemIf Socketfile
-// does not exist, then this function will attempt to create it. Socketfile
-// can be created outside this function using CreateMemifSocket().
+// Attempt to create a MemIf Interface. 
 // Input:
 //   ch *api.Channel
 //   socketId uint32
@@ -111,14 +105,6 @@ func CreateMemifInterface(ch *api.Channel, socketId uint32, role MemifRole, mode
 		return
 	} else {
 		swIfIndex = reply.SwIfIndex
-	}
-
-
-	// Set interface to up (1)
-	err = vppinterface.SetState(ch, swIfIndex, 1)
-	if err != nil {
-		fmt.Println("Error bringing memif interface UP:", err)
-		return
 	}
 
 	return
@@ -212,9 +198,10 @@ func DumpMemif(ch *api.Channel) {
 
 
 // API to Create the MemIf Socketfile.
-func CreateMemifSocket(ch *api.Channel, socketId uint32, socketFile string) (err error) {
+func CreateMemifSocket(ch *api.Channel, socketFile string) (socketId uint32, err error) {
 
-	if findMemifSocket(ch, socketId) {
+	found,socketId := findMemifSocket(ch, socketFile)
+	if found {
 		fmt.Println("Socketfile already exists")
 		return
 	}
@@ -347,12 +334,53 @@ func findMemifSocketCnt(ch *api.Channel, socketId uint32) (count uint32) {
 // Loop through the list of Memif Sockets and determine if input
 // socketId exists.
 // Returns: true - exists  false - otherwise
-func findMemifSocket(ch *api.Channel, socketId uint32) (found bool) {
+//func findMemifSocket(ch *api.Channel, socketId uint32) (found bool) {
+//
+//	// Populate the Message Structure
+//	req := &memif.MemifSocketFilenameDump{}
+//	reqCtx := ch.SendMultiRequest(req)
+//
+//	for {
+//		reply := &memif.MemifSocketFilenameDetails{}
+//		stop, err := reqCtx.ReceiveReply(reply)
+//		if stop {
+//			break // break out of the loop
+//		}
+//		if err != nil {
+//			fmt.Println("Error dumping memif socket:", err)
+//		}
+//
+//		if socketId == reply.SocketID {
+//			found = true
+//		}
+//	}
+//
+//	return
+//}
 
-        // Populate the Message Structure
-        req := &memif.MemifSocketFilenameDump{}
+
+// Loop through the list of Memif Sockets and determine if input
+// socketFile exists. If it does, return the associated socketId.
+// If it doesn't, return the next available socketId.
+// Returns:
+//   bool - Found flag
+//   uint32 - If found is true: associated socketId.
+//            If found is false: next free socketId.
+func findMemifSocket(ch *api.Channel, socketFilename string) (found bool, socketId uint32) {
+
+	var count int
+	var usedList [20]uint32
+	var done bool
+
+	// Populate the Message Structure
+	req := &memif.MemifSocketFilenameDump{}
 	reqCtx := ch.SendMultiRequest(req)
 
+
+	//
+	// Loop through the exisiting SocketFiles and see if input
+	// socketFilename already exists,
+	//
 	for {
 		reply := &memif.MemifSocketFilenameDetails{}
 		stop, err := reqCtx.ReceiveReply(reply)
@@ -360,11 +388,38 @@ func findMemifSocket(ch *api.Channel, socketId uint32) (found bool) {
 			break // break out of the loop
 		}
 		if err != nil {
-                	fmt.Println("Error dumping memif socket:", err)
+                	fmt.Println("Error retrieving memif socket:", err)
 		}
 
-		if socketId == reply.SocketID {
+		if socketFilename == string(reply.SocketFilename) {
 			found = true
+			socketId = reply.SocketID
+			break // break out of the loop
+		} else {
+			usedList[count] = reply.SocketID
+			count++
+		}
+	}
+
+
+	//
+	// If input SocketFilename has not been created, then loop
+	// through the list of existing SocketIds and find an unused Id.
+	//
+	if found == false {
+		socketId = 1
+
+		for ; done == false; {
+
+			done = true
+			for i := 0; i < count; i++ {
+				if socketId == usedList[i] {
+					socketId++
+					done = false
+					break
+				}
+			}
+			
 		}
 	}
 

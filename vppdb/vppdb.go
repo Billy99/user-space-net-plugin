@@ -51,7 +51,14 @@ const defaultLocalCNIDir = "/var/run/vpp/cni/data"
 // This structure is a union of all the VPP data (for all types of
 // interfaces) that need to be preserved for later use.
 type VppSavedData struct {
-        SwIfIndex  uint32 `json:"swIfIndex"`     // Software Index, used to access the created interface
+        SwIfIndex      uint32 `json:"swIfIndex"`       // Software Index, used to access the created interface, needed to delete interface.
+        MemifSocketId  uint32 `json:"memifSocketId"`   // Memif SocketId, used to access the created memif Socket File, used for debug only.
+}
+
+// This structure is used to pass additional data outside of the usrsptypes date into the container.
+type additionalData struct {
+        ContainerId    string                  `json:"containerId"`  // ContainerId used locally. Used in several place, namely in the socket filenames.
+	IPData         usrsptypes.IPDataType   `json:"ipData"`       // Data structure returned from IPAM plugin. 
 }
 
 
@@ -59,7 +66,7 @@ type VppSavedData struct {
 // API Functions
 //
 
-// saveVppConfig() - Some data needs to be saved, like the swIfIndex, or cmdDel().
+// saveVppConfig() - Some data needs to be saved, like the swIfIndex, for cmdDel().
 //  This function squirrels the data away to be retrieved later.
 func SaveVppConfig(conf *usrsptypes.NetConf, containerID string, data *VppSavedData) error {
 
@@ -126,14 +133,16 @@ func LoadVppConfig(conf *usrsptypes.NetConf, containerID string, data *VppSavedD
 //      flip the location and write the data to a file. When the Container
 //      comes up, it will read the file via () and delete the file. This function
 //      writes the file.
-func SaveRemoteConfig(conf *usrsptypes.NetConf, containerID string) error {
+func SaveRemoteConfig(conf *usrsptypes.NetConf, ipData usrsptypes.IPDataType, containerID string) error {
+
+	var dataCopy usrsptypes.NetConf
+	var addData additionalData
 
 	// Current implementation is to write data to a file with the name:
 	//   /var/run/vpp/cni/<ContainerId>/remote-<If0name>.json
+	//   /var/run/vpp/cni/<ContainerId>/addData-<If0name>.json
 
-	fileName := fmt.Sprintf("remote-%s.json", conf.If0name)
 	sockDir  := filepath.Join(defaultBaseCNIDir, containerID)
-	path     := filepath.Join(sockDir, fileName)
 
 	if _, err := os.Stat(sockDir); err != nil {
 		if os.IsNotExist(err) {
@@ -145,54 +154,126 @@ func SaveRemoteConfig(conf *usrsptypes.NetConf, containerID string) error {
 		}
 	}
 
-	conf.UserSpaceConf.Location = "local"
-        dataBytes, err := json.Marshal(conf)
-	conf.UserSpaceConf.Location = "remote"
-        
+
+	//
+	// Convert the remote configuration into a local configuration
+	//
+	dataCopy = *conf
+	dataCopy.HostConf = dataCopy.ContainerConf
+	dataCopy.ContainerConf = usrsptypes.UserSpaceConf{}
+
+	// IPAM is processed by the host and sent to the Container. So blank out what was already processed.
+	dataCopy.IPAM.Type = ""
+
+	// Convert empty variables to valid data based on the original HostConf
+	if dataCopy.HostConf.Engine == "" {
+		dataCopy.HostConf.Engine = conf.HostConf.Engine
+	}
+	if dataCopy.HostConf.IfType == "" {
+		dataCopy.HostConf.IfType = conf.HostConf.IfType
+	}
+	if dataCopy.HostConf.NetType == "" {
+		dataCopy.HostConf.NetType = "interface"
+	}
+
+	if dataCopy.HostConf.IfType == "memif" {
+		if dataCopy.HostConf.MemifConf.Role == "" {
+			if conf.HostConf.MemifConf.Role == "master" {
+				dataCopy.HostConf.MemifConf.Role = "slave"
+			} else {
+				dataCopy.HostConf.MemifConf.Role = "master"
+			}	
+		}
+		if dataCopy.HostConf.MemifConf.Mode == "" {
+			dataCopy.HostConf.MemifConf.Mode =  conf.HostConf.MemifConf.Mode
+		}
+	} else if dataCopy.HostConf.IfType == "vhostuser" {
+		if dataCopy.HostConf.VhostConf.Mode == "" {
+			if conf.HostConf.VhostConf.Mode == "client" {
+				dataCopy.HostConf.VhostConf.Mode = "server"
+			} else {
+				dataCopy.HostConf.VhostConf.Mode = "client"
+			}	
+		}
+	}
+
+
+	//
+	// Gather the additional data
+	//
+	addData.ContainerId = containerID
+	addData.IPData      = ipData
+
+
+	//
+	// Marshall data and write to file
+	//
+	fileName := fmt.Sprintf("remote-%s.json", dataCopy.If0name)
+	path     := filepath.Join(sockDir, fileName)
+
+        dataBytes, err := json.Marshal(dataCopy)
+	
 	if err == nil {
-                fmt.Printf("SAVE FILE: path=%s dataBytes=%s", path, dataBytes)
-                return ioutil.WriteFile(path, dataBytes, 0644)
-        } else {
-                return fmt.Errorf("ERROR: serializing REMOTE NetConf data: %v", err)
-        }
+		fmt.Printf("SAVE FILE: path=%s dataBytes=%s", path, dataBytes)
+		err = ioutil.WriteFile(path, dataBytes, 0644)
+	} else {
+		return fmt.Errorf("ERROR: serializing REMOTE NetConf data: %v", err)
+	}
+
+
+	if err == nil {
+		fileName = fmt.Sprintf("addData-%s.json", dataCopy.If0name)
+		path     = filepath.Join(sockDir, fileName)
+
+		dataBytes, err = json.Marshal(addData)
+        
+		if err == nil {
+		        fmt.Printf("SAVE FILE: path=%s dataBytes=%s", path, dataBytes)
+			err = ioutil.WriteFile(path, dataBytes, 0644)
+		} else {
+			return fmt.Errorf("ERROR: serializing ADDDATA NetConf data: %v", err)
+		}
+	}
+
+	return err
 }
 
 
-func FindRemoteConfig() (bool, usrsptypes.NetConf, error) {
-	var found bool = false
+func FindRemoteConfig() (bool, usrsptypes.NetConf, usrsptypes.IPDataType, string, error) {
 	var conf usrsptypes.NetConf
+	var addData additionalData
 
-	sockDir  := filepath.Join(defaultLocalCNIDir, "remote-*.json")
+	//
+	// Find Primary input file
+	//
+	found, dataBytes, err := findFile(filepath.Join(defaultLocalCNIDir, "remote-*.json"))
 
-	fmt.Println(sockDir)
-	matches, err := filepath.Glob(sockDir)
-
-	if err != nil {
-		fmt.Println(err)
-		return found, conf, err
-	}
-
-	fmt.Println(sockDir)
-	fmt.Println(matches)
-
-	for i := range matches {
-                fmt.Printf("PROCESSING FILE: path=%s\n", matches[i])
-
-		found = true
-
-		if dataBytes, err := ioutil.ReadFile(matches[i]); err == nil {
+	if err == nil {
+		if found {
 			if err = json.Unmarshal(dataBytes, &conf); err != nil {
-				return found,conf,fmt.Errorf("failed to parse Remote config: %v", err)
+				return found, conf, addData.IPData, addData.ContainerId, fmt.Errorf("failed to parse Remote config: %v", err)
 			}
 
-			// Delete file (and directory if empty)
-			fileCleanup("", matches[i])
+
+			//
+			// Since Primary input was found, look for Additional Data file.
+			//
+			found, dataBytes, err = findFile(filepath.Join(defaultLocalCNIDir, "addData-*.json"))
+			if err == nil {
+				if found {
+					if err = json.Unmarshal(dataBytes, &addData); err != nil {
+						return found, conf, addData.IPData, addData.ContainerId, fmt.Errorf("failed to parse AddData config: %v", err)
+					}
+ 				} else {
+					return found, conf, addData.IPData, addData.ContainerId, fmt.Errorf("failed to read AddData config: %v", err)
+				}
+			}
  		} else {
-			return found,conf,fmt.Errorf("failed to read Remote config: %v", err)
+			return found, conf, addData.IPData, addData.ContainerId, fmt.Errorf("failed to read Remote config: %v", err)
 		}
 	}
 	
-	return found,conf,err
+	return found, conf, addData.IPData, addData.ContainerId, err
 }
 
 // CleanupRemoteConfig() - When a config read on the host is for a Container,
@@ -245,3 +326,37 @@ func fileCleanup(directory string, filepath string) (err error) {
 	return
 }
 
+
+func findFile(filePath string) (bool, []byte, error) {
+	var found bool = false
+
+
+	fmt.Println(filePath)
+	matches, err := filepath.Glob(filePath)
+
+	if err != nil {
+		fmt.Println(err)
+		return found, nil, err
+	}
+
+	fmt.Println(matches)
+
+	for i := range matches {
+                fmt.Printf("PROCESSING FILE: path=%s\n", matches[i])
+
+		found = true
+
+		if dataBytes, err := ioutil.ReadFile(matches[i]); err == nil {
+                	fmt.Printf("FILE DATA:\n%s\n", dataBytes)
+
+			// Delete file (and directory if empty)
+			fileCleanup("", matches[i])
+
+			return found, dataBytes, err
+ 		} else {
+			return found, nil, fmt.Errorf("failed to read Remote config: %v", err)
+		}
+	}
+	
+	return found, nil, err
+}

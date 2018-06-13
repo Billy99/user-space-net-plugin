@@ -29,16 +29,18 @@ import (
 	_ "github.com/sirupsen/logrus"
 	_ "git.fd.io/govpp.git/core"
 
+	"github.com/Billy99/user-space-net-plugin/usrsptypes"
+
 	"github.com/Billy99/cnivpp/api/infra"
 	"github.com/Billy99/cnivpp/api/memif"
-	"github.com/Billy99/cnivpp/api/bridge"
+	"github.com/Billy99/cnivpp/api/interface"
 )
 
 //
 // Constants
 //
 const (
-	dbgBridge = true
+	dbgIp = true
 	dbgMemif = true
 )
 
@@ -60,7 +62,8 @@ func main() {
 	var swIfIndex uint32
 
 	// Dummy Input Data
-	var bridgeDomain uint32 = 4
+	var ipString string = "192.168.172.100/24"
+	var ipData usrsptypes.IPDataType
 	var memifSocketId uint32
 	var memifSocketFile string = "/var/run/vpp/123456/memif-3.sock"
 	var memifRole vppmemif.MemifRole = vppmemif.RoleMaster
@@ -85,7 +88,7 @@ func main() {
 
 
 	// Compatibility Checks
-	err = vppbridge.BridgeCompatibilityCheck(vppCh.Ch)
+	err = vppinterface.InterfaceCompatibilityCheck(vppCh.Ch)
 	if err != nil {
 		os.Exit(1)
 	}
@@ -121,18 +124,21 @@ func main() {
 	}
 
 
+        // Set interface to up (1)
+        err = vppinterface.SetState(vppCh.Ch, swIfIndex, 1)
+        if err != nil {
+                fmt.Println("Error bringing interface UP:", err)
+		os.Exit(1)
+        }
 
-	// Add MemIf to Bridge. If Bridge does not exist, AddBridgeInterface()
-	// will create.
-	err = vppbridge.AddBridgeInterface(vppCh.Ch, bridgeDomain, swIfIndex)
+
+	// Add IP to MemIf to Bridge.
+	err = vppinterface.AddDelIpAddress(vppCh.Ch, swIfIndex, 1, ipData)
 	if err != nil {
 		fmt.Println("Error:", err)
 		os.Exit(1)
 	} else {
-		fmt.Printf("INTERFACE %d add to BRIDGE %d\n", swIfIndex, bridgeDomain)
-		if dbgBridge {
-			vppbridge.DumpBridge(vppCh.Ch, bridgeDomain)
-		}
+		fmt.Printf("IP %s added to INTERFACE %d\n", ipString, swIfIndex)
 	}
 
 
@@ -141,18 +147,14 @@ func main() {
 	fmt.Println("User Space VPP client wakeup.")
 
 
-	// Remove MemIf from Bridge. RemoveBridgeInterface() will delete Bridge if
-	// no more interfaces are associated with the Bridge.
-	err = vppbridge.RemoveBridgeInterface(vppCh.Ch, bridgeDomain, swIfIndex)
+	// Remove IP from MemIf.
+	err = vppinterface.AddDelIpAddress(vppCh.Ch, swIfIndex, 0, ipData)
 
 	if err != nil {
 		fmt.Println("Error:", err)
 		os.Exit(1)
 	} else {
-		fmt.Printf("INTERFACE %d removed from BRIDGE %d\n", swIfIndex, bridgeDomain)
-		if dbgBridge {
-			vppbridge.DumpBridge(vppCh.Ch, bridgeDomain)
-		}
+		fmt.Printf("IP %s removed from INTERFACE %d\n", ipString, swIfIndex)
 	}
 
 

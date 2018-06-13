@@ -4,6 +4,7 @@ build:
 	@cd vpp-app && go build -v
 	@cd test/memifAddDel && go build -v
 	@cd test/vhostUserAddDel && go build -v
+	@cd test/ipAddDel && go build -v
 
 test:
 
@@ -16,6 +17,7 @@ clean:
 	@rm -f vpp-app/vpp-app
 	@rm -f test/memifAddDel/memifAddDel
 	@rm -f test/vhostUserAddDel/vhostUserAddDel
+	@rm -f test/ipAddDel/ipAddDel
 	@rm -f vendor/git.fd.io/govpp.git/cmd/binapi-generator/binapi-generator 
 
 generate:
