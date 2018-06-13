@@ -18,7 +18,7 @@ implementation, but only VPP has been implemented.
 link in the implementation that are desired.
 * Have only tested with the scripts provided with the Container Network
 Interface (CNI) project. Have not tested with Multus or Kubernetes.
-* Moved from a build script to a simple make file. Log term probably need
+* Moved from a build script to a simple make file. Long term probably need
 to go back to the build script, or at least add *install* functionality.
 Only had one file to compile so went with simplicity for now. Make/Build
 are not my strong suit.
@@ -74,58 +74,47 @@ In order to test, a container with VPP 18.04 and vpp-app has been created:
   docker pull bmcfall/vpp-centos-userspace-cni
 ```
 
-Setup your configuration files in your CNI directory. An example is
+Setup your configuration file in your CNI directory. An example is
 */etc/cni/net.d/*.
 
 **NOTE:** The *userspace* nectconf definition is still a work in progress. So
 the example below is just an example, see *usrsptypes* for latest definitions.
 
-Setup local configuration (on host):
+Example of how to setup a configuration for a VPP memif interface between the
+host and container:
 ```
 sudo vi /etc/cni/net.d/90-userspace.conf 
-{
+
         "type": "userspace",
         "name": "memif-network",
         "if0name": "net0",
-        "userspace": {
-                "type": "memif",
-                "owner": "vpp",
-                "location": "local",
+        "host": {
+                "engine": "vpp",
+                "iftype": "memif",
                 "netType": "bridge",
                 "memif": {
                         "role": "master",
-                        "mode": "ethernet",
-                        "socketId": 3,
-                        "socketFile": "/var/run/vpp/cni/shared/memif-3.sock"
+                        "mode": "ethernet"
                 },
                 "bridge": {
                         "bridgeId": 4
                 }
-        }
-}
-```
-
-Setup local configuration (on host):
-```
-sudo vi /etc/cni/net.d/90-userspace.conf 
-{
-        "type": "userspace",
-        "name": "memif-network",
-        "if0name": "net0",
-        "userspace": {
-                "type": "memif",
-                "owner": "vpp",
-                "location": "remote",
-                "netType": "bridge",
+        },
+        "container": {
+                "engine": "vpp",
+                "iftype": "memif",
+                "netType": "interface",
                 "memif": {
                         "role": "slave",
-                        "mode": "ethernet",
-                        "socketId": 3,
-                        "socketFile": "/var/run/vpp/cni/shared/memif-3.sock"
-                },
-                "bridge": {
-                        "bridgeId": 4
+                        "mode": "ethernet"
                 }
+        },
+        "ipam": {
+                "type": "host-local",
+                "subnet": "192.168.210.0/24",
+                "routes": [
+                        { "dst": "0.0.0.0/0" }
+                ]
         }
 }
 ```

@@ -24,13 +24,10 @@ import (
 type MemifConf struct {
 	Role       string `json:"role"`       // Role of memif: master|slave
 	Mode       string `json:"mode"`       // Mode of memif: ip|ethernet|inject-punt
-	SocketId   int    `json:"socketId"`   // SocketId for memif
-	SocketFile string `json:"socketFile"` // Socketfile for memif
 }
 
 type VhostConf struct {
 	Mode       string `json:"mode"`       // vhost-user mode: client|server
-	SocketFile string `json:"socketFile"` // Socketfile for vhost-user
 }
 
 type BridgeConf struct {
@@ -39,12 +36,12 @@ type BridgeConf struct {
 }
 
 type UserSpaceConf struct {
-	Type       string `json:"type"`              // Type of interface - memif|vhostuser|veth|tap
-	Owner      string `json:"owner"`             // CNI Implementation - vpp|ovs|ovs-dpdk|host
-	Location   string `json:"location"`          // Interface location - local|remote
-	NetType    string `json:"netType"`           // Interface network type - none|bridge|ip|vxlan|mpls
-	Ifname     string `json:"ifname,omitempty"`  // Interface name
-	IfMac      string `json:"ifmac,omitempty"`   // Interface MAC Address
+	// The Container Instance will default to the Host Instance value if a given attribute
+	// is not provided. However, they are not required to be the same and a Container
+	// attribute can be provided to override.  
+	Engine     string `json:"engine,omitempty"`    // CNI Implementation {vpp|ovs|ovs-dpdk|linux}
+	IfType     string `json:"iftype,omitempty"`    // Type of interface {memif|vhostuser|veth|tap}
+	NetType    string `json:"netType,omitempty"`   // Interface network type {none|bridge|interface}
 	MemifConf  MemifConf  `json:"memif,omitempty"`
 	VhostConf  VhostConf  `json:"vhost,omitempty"`
 	BridgeConf BridgeConf `json:"bridge,omitempty"`
@@ -52,7 +49,15 @@ type UserSpaceConf struct {
 
 type NetConf struct {
 	types.NetConf
-	UserSpaceConf  UserSpaceConf `json:"userspace,omitempty"`
+	Name           string        `json:"name"`
 	If0name        string        `json:"if0name"`
+        HostConf       UserSpaceConf `json:"host,omitempty"`
+        ContainerConf  UserSpaceConf `json:"container,omitempty"`
 }
 
+
+type IPDataType struct {
+	IsIpv6         uint8  `json:"isIpv6"`
+	AddressLength  uint8  `json:"addrLen"`
+	Address        string `json:"ipAddr"`
+}

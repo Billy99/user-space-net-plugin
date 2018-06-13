@@ -15,7 +15,6 @@
 package main
 
 import (
-	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -52,104 +51,154 @@ func loadNetConf(bytes []byte) (*usrsptypes.NetConf, error) {
 	return n, nil
 }
 
-const NET_CONFIG_TEMPLATE = `{
-	"ipAddr": "%s/32",
-	"macAddr": "%s",
-	"gateway": "169.254.1.1",
-	"gwMac": "%s"
-}
-`
-
-func GenerateRandomMacAddress() string {
-	buf := make([]byte, 6)
-	if _, err := rand.Read(buf); err != nil {
-		return ""
-	}
-
-	// Set the local bit and make sure not MC address
-	macAddr := fmt.Sprintf("%02x:%02x:%02x:%02x:%02x:%02x",
-		(buf[0]|0x2)&0xfe, buf[1], buf[2],
-		buf[3], buf[4], buf[5])
-	return macAddr
-}
-
-// SetupContainerNetwork Write the configuration to file
-func SetupContainerNetwork(conf *usrsptypes.NetConf, containerID, containerIP string) {
-	//args := []string{"config", conf.VhostConf.Vhostname, containerIP, conf.VhostConf.IfMac}
-	//ExecCommand(conf.VhostConf.Vhosttool, args)
-
-	// Write the configuration to file
-	//config := fmt.Sprintf(NET_CONFIG_TEMPLATE, containerIP, conf.VhostConf.IfMac, conf.VhostConf.VhostMac)
-	//fileName := fmt.Sprintf("%s-%s-ip4.conf", containerID[:12], conf.If0name)
-	//sockDir := filepath.Join(conf.CNIDir, containerID)
-	//configFile := filepath.Join(sockDir, fileName)
-	//ioutil.WriteFile(configFile, []byte(config), 0644)
-}
 
 func cmdAdd(args *skel.CmdArgs) error {
-	var result *types.Result
+	var ipamResult *types.Result
 	var netConf *usrsptypes.NetConf
+	var containerEngine string
+	var ipData usrsptypes.IPDataType
+	var prefix int
+
 
 	// Convert the input bytestream into local NetConf structure
 	netConf, err := loadNetConf(args.StdinData)
 	if err != nil {
-		return result.Print()
+		return err
 	}
 
-	// Add the requested interface
-	if netConf.UserSpaceConf.Owner == "vpp" {
-		err = cnivpp.CniVppAdd(netConf, args.ContainerID)
+
+	//
+	// HOST:
+	//
+
+	// Add the requested interface and network
+	if netConf.HostConf.Engine == "vpp" {
+		err = cnivpp.CniVppAddOnHost(netConf, ipData, args.ContainerID)
 		if err != nil {
 			return err
 		}
-	} else if netConf.UserSpaceConf.Owner == "ovs-dpdk" {
-		return errors.New("GOOD: Found UserSpace Owner:" + netConf.UserSpaceConf.Owner + " - NOT SUPPORTED")
+	} else if netConf.HostConf.Engine == "ovs-dpdk" {
+		return errors.New("GOOD: Found Host Engine:" + netConf.HostConf.Engine + " - NOT SUPPORTED")
 	} else {
-		return errors.New("ERROR: Unknown UserSpace Owner:" + netConf.UserSpaceConf.Owner)
+		return errors.New("ERROR: Unknown Host Engine:" + netConf.HostConf.Engine)
 	}
 
+
+	//
+	// CONTAINER:
+	//
+
+	// Get IPAM data for Container Interface, if provided.
 	if netConf.IPAM.Type != "" {
+
+		//type IPConfig struct {
+		//	IP      net.IPNet
+		//	Gateway net.IP
+		//	Routes  []types.Route
+		//}
+
+		//type Result struct {
+		//	CNIVersion string    `json:"cniVersion,omitempty"`
+		//	IP4        *IPConfig `json:"ip4,omitempty"`
+		//	IP6        *IPConfig `json:"ip6,omitempty"`
+		//	DNS        types.DNS `json:"dns,omitempty"`
+		//}
+
+
 		// run the IPAM plugin and get back the config to apply
-		result, err = ipam.ExecAdd(netConf.IPAM.Type, args.StdinData)
+		ipamResult, err = ipam.ExecAdd(netConf.IPAM.Type, args.StdinData)
 		if err != nil {
 			return fmt.Errorf("failed to set up IPAM: %v", err)
 		}
-		if result.IP4 == nil {
-			return errors.New("IPAM plugin returned missing IPv4 config")
-		}
 
-		containerIP := result.IP4.IP.IP.String()
-		SetupContainerNetwork(netConf, args.ContainerID, containerIP)
+		if ipamResult.IP4 != nil {
+			ipData.IsIpv6  = 0
+			ipData.Address = ipamResult.IP4.IP.IP.String()
+			prefix, _   = ipamResult.IP4.IP.Mask.Size()
+			ipData.AddressLength = byte(prefix)
+		} else if ipamResult.IP6 != nil {
+			ipData.IsIpv6  = 1
+			ipData.Address = ipamResult.IP6.IP.IP.String()
+			prefix, _   = ipamResult.IP6.IP.Mask.Size()
+			ipData.AddressLength = byte(prefix)
+		}
 	}
 
-	return result.Print()
+	// Determine the Engine that will process the request. Default to host
+	// if not provided.
+	if netConf.ContainerConf.Engine != "" {
+		containerEngine = netConf.ContainerConf.Engine
+	} else {
+		containerEngine = netConf.HostConf.Engine
+	}
+ 
+	// Add the requested interface and network
+	if containerEngine == "vpp" {
+		err = cnivpp.CniVppAddOnContainer(netConf, ipData, args.ContainerID)
+		if err != nil {
+			return err
+		}
+	} else if containerEngine == "ovs-dpdk" {
+		return errors.New("GOOD: Found Container Engine:" + containerEngine + " - NOT SUPPORTED")
+	} else {
+		return errors.New("ERROR: Unknown Container Engine:" + containerEngine)
+	}
+
+	return nil
 }
 
 func cmdDel(args *skel.CmdArgs) error {
-	var result *types.Result
 	var netConf *usrsptypes.NetConf
+	var containerEngine string
 
 	// Convert the input bytestream into local NetConf structure
 	netConf, err := loadNetConf(args.StdinData)
 	if err != nil {
-		return result.Print()
+		return err
 	}
 
+
+	//
+	// HOST:
+	//
+
 	// Delete the requested interface
-	if netConf.UserSpaceConf.Owner == "vpp" {
-		err = cnivpp.CniVppDel(netConf, args.ContainerID)
+	if netConf.HostConf.Engine == "vpp" {
+		err = cnivpp.CniVppDelFromHost(netConf, args.ContainerID)
 		if err != nil {
 			return err
 		}
-	} else if netConf.UserSpaceConf.Owner == "ovs-dpdk" {
-		return errors.New("GOOD: Found UserSpace Owner:" + netConf.UserSpaceConf.Owner + " - NOT SUPPORTED")
+	} else if netConf.HostConf.Engine == "ovs-dpdk" {
+		return errors.New("GOOD: Found Host Engine:" + netConf.HostConf.Engine + " - NOT SUPPORTED")
 	} else {
-		return errors.New("ERROR: Unknown UserSpace Owner:" + netConf.UserSpaceConf.Owner)
+		return errors.New("ERROR: Unknown Host Engine:" + netConf.HostConf.Engine)
 	}
 
-	if netConf.IPAM.Type != "" {
-		return ipam.ExecDel(netConf.IPAM.Type, args.StdinData)
+
+	//
+	// CONTAINER
+	//
+
+	// Determine the Engine that will process the request. Default to host
+	// if not provided.
+	if netConf.ContainerConf.Engine != "" {
+		containerEngine = netConf.ContainerConf.Engine
+	} else {
+		containerEngine = netConf.HostConf.Engine
 	}
+
+	// Delete the requested interface
+	if containerEngine == "vpp" {
+		err = cnivpp.CniVppDelFromContainer(netConf, args.ContainerID)
+		if err != nil {
+			return err
+		}
+	} else if containerEngine == "ovs-dpdk" {
+		return errors.New("GOOD: Found Container Engine:" + containerEngine + " - NOT SUPPORTED")
+	} else {
+		return errors.New("ERROR: Unknown Container Engine:" + containerEngine)
+	}
+
 	return nil
 }
 
