@@ -71,10 +71,10 @@ type additionalData struct {
 func SaveVppConfig(conf *usrsptypes.NetConf, containerID string, data *VppSavedData) error {
 
 	// Current implementation is to write data to a file with the name:
-	//   /var/run/vpp/cni/data/local-<If0name>.json
+	//   /var/run/vpp/cni/data/local-<ContainerId:12>-<If0name>.json
 	//   OLD: /var/run/vpp/cni/<ContainerId>/local-<If0name>.json
 
-        fileName := fmt.Sprintf("local-%s.json", conf.If0name)
+        fileName := fmt.Sprintf("local-%s-%s.json", containerID[:12], conf.If0name)
         if dataBytes, err := json.Marshal(data); err == nil {
                 sockDir := defaultLocalCNIDir
                 // OLD: sockDir := filepath.Join(defaultCNIDir, containerID)
@@ -100,7 +100,7 @@ func SaveVppConfig(conf *usrsptypes.NetConf, containerID string, data *VppSavedD
 
 func LoadVppConfig(conf *usrsptypes.NetConf, containerID string, data *VppSavedData) (error) {
 
-	fileName := fmt.Sprintf("local-%s.json", conf.If0name)
+	fileName := fmt.Sprintf("local-%s-%s.json", containerID[:12], conf.If0name)
 	sockDir := defaultLocalCNIDir
 	// OLD: sockDir := filepath.Join(defaultCNIDir, containerID)
 	path := filepath.Join(sockDir, fileName)
@@ -119,7 +119,7 @@ func LoadVppConfig(conf *usrsptypes.NetConf, containerID string, data *VppSavedD
 	}
 
 	// Delete file (and directory if empty)
-	fileCleanup(sockDir, path)
+	FileCleanup(sockDir, path)
 
         return nil
 }
@@ -301,7 +301,7 @@ func CleanupRemoteConfig(conf *usrsptypes.NetConf, containerID string) {
 //    should remain unchanged.
 //  filepath string - File (including directory) to be deleted. Use "" if
 //    only the directory should be deleted.
-func fileCleanup(directory string, filepath string) (err error) {
+func FileCleanup(directory string, filepath string) (err error) {
 
 	// If File is provided, delete it.
 	if filepath != "" {
@@ -350,7 +350,7 @@ func findFile(filePath string) (bool, []byte, error) {
                 	fmt.Printf("FILE DATA:\n%s\n", dataBytes)
 
 			// Delete file (and directory if empty)
-			fileCleanup("", matches[i])
+			FileCleanup("", matches[i])
 
 			return found, dataBytes, err
  		} else {

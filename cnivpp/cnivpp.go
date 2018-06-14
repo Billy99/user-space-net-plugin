@@ -223,7 +223,7 @@ func CniVppDelFromHost(conf *usrsptypes.NetConf, containerID string) error {
 	// Delete Local Interface
 	//
 	if conf.HostConf.IfType == "memif" {
-		return delLocalDeviceMemif(vppCh, conf, &data)
+		return delLocalDeviceMemif(vppCh, conf, containerID, &data)
 	} else if conf.HostConf.IfType == "vhostuser" {
 		return errors.New("GOOD: Found HostConf.Type:" + conf.HostConf.IfType)
 	} else {
@@ -353,8 +353,15 @@ func addLocalDeviceMemif(vppCh vppinfra.ConnectionData, conf *usrsptypes.NetConf
 	return
 }
 
-func delLocalDeviceMemif(vppCh vppinfra.ConnectionData, conf *usrsptypes.NetConf, data *vppdb.VppSavedData) (err error) {
+func delLocalDeviceMemif(vppCh vppinfra.ConnectionData, conf *usrsptypes.NetConf, containerID string, data *vppdb.VppSavedData) (err error) {
 
+	var ok bool
+	var memifSocketFile string
+
+	if memifSocketFile, ok = os.LookupEnv("USERSPACE_MEMIF_SOCKFILE"); ok == false {
+		fileName := fmt.Sprintf("memif-%s-%s.sock", containerID[:12], conf.If0name)
+		memifSocketFile = filepath.Join(defaultVPPSocketDir, fileName)
+	}
 
 	fmt.Println("Delete memif interface.")
 	err = vppmemif.DeleteMemifInterface(vppCh.Ch, data.SwIfIndex)
@@ -368,6 +375,9 @@ func delLocalDeviceMemif(vppCh vppinfra.ConnectionData, conf *usrsptypes.NetConf
 			vppmemif.DumpMemifSocket(vppCh.Ch)
 		}
 	}
+
+	// Remove file
+	err = vppdb.FileCleanup("", memifSocketFile)
 
 	return
 }
