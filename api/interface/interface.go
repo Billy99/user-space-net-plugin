@@ -29,6 +29,13 @@ import (
 	"git.fd.io/govpp.git/core/bin_api/interfaces"
 )
 
+
+//
+// Constants
+//
+const debugInterface = false
+
+
 //
 // API Functions
 //
@@ -42,7 +49,9 @@ func InterfaceCompatibilityCheck(ch *api.Channel) (err error) {
 		&interfaces.SwInterfaceAddDelAddressReply{},
 	)
 	if err != nil {
-		fmt.Println("VPP Interface failed compatibility")
+		if debugInterface {
+			fmt.Println("VPP Interface failed compatibility")
+		}
 	}
 
 	return err
@@ -63,7 +72,9 @@ func SetState(ch *api.Channel, swIfIndex uint32, isUp uint8) error {
 	err := ch.SendRequest(req).ReceiveReply(reply)
 
 	if err != nil {
-		fmt.Println("Error:", err)
+		if debugInterface {
+			fmt.Println("Error:", err)
+		}
 		return err
 	}
 
@@ -92,15 +103,19 @@ func AddDelIpAddress(ch *api.Channel, swIfIndex uint32, isAdd uint8, ipData usrs
 		req.Address = []byte(addr.To4())
 	}
 
-	fmt.Println("IP Address")
-	fmt.Println(req.Address)
+	if debugInterface {
+		fmt.Println("IP Address")
+		fmt.Println(req.Address)
+	}
 
 	reply := &interfaces.SwInterfaceAddDelAddressReply{}
 
 	err := ch.SendRequest(req).ReceiveReply(reply)
 
 	if err != nil {
-		fmt.Println("Error:", err)
+		if debugInterface {
+			fmt.Println("Error:", err)
+		}
 		return err
 	}
 

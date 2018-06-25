@@ -22,11 +22,18 @@ package vppinfra
 import (
 	"fmt"
 
+	"github.com/sirupsen/logrus"
+
 	"git.fd.io/govpp.git"
 	"git.fd.io/govpp.git/api"
 	"git.fd.io/govpp.git/core"
 )
 
+
+//
+// Constants
+//
+const debugInfra = false
 
 //
 // Types
@@ -50,10 +57,16 @@ func VppOpenCh() (ConnectionData, error) {
 	var err    error
 
 
+	// Set log level
+	//   Logrus has six logging levels: DebugLevel, InfoLevel, WarningLevel, ErrorLevel, FatalLevel and PanicLevel.
+	core.SetLogger(&logrus.Logger{Level: logrus.ErrorLevel})
+
 	// Connect to VPP
 	vppCh.conn, err = govpp.Connect("")
 	if err != nil {
-		fmt.Println("Error:", err)
+		if debugInfra {
+			fmt.Println("Error:", err)
+		}
 		return vppCh,err
 	}
 	vppCh.disconnectFlag = true
@@ -63,7 +76,9 @@ func VppOpenCh() (ConnectionData, error) {
 	vppCh.Ch, err = vppCh.conn.NewAPIChannel()
 	if err != nil {
 		VppCloseCh(vppCh)
-		fmt.Println("Error:", err)
+		if debugInfra {
+			fmt.Println("Error:", err)
+		}
 		return vppCh,err
 	}
 	vppCh.closeFlag = true

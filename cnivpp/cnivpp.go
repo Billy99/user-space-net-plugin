@@ -28,7 +28,6 @@ package cnivpp
 
 import (
 	"fmt"
-	"errors"
 	"os"
 	"path/filepath"
 
@@ -47,8 +46,8 @@ import (
 // Constants
 //
 const (
-	dbgBridge = true
-	dbgMemif = true
+	dbgBridge = false
+	dbgInterface = false
 )
 
 const defaultVPPSocketDir = "/var/run/vpp/cni/shared/"
@@ -66,11 +65,6 @@ func CniVppAddOnHost(conf *usrsptypes.NetConf, ipData usrsptypes.IPDataType, con
 	var vppCh vppinfra.ConnectionData
 	var err error
 	var data vppdb.VppSavedData
-
-
-	// Set log level
-	//   Logrus has six logging levels: DebugLevel, InfoLevel, WarningLevel, ErrorLevel, FatalLevel and PanicLevel.
-	//core.SetLogger(&logrus.Logger{Level: logrus.InfoLevel})
 
 
 	// Create Channel to pass requests to VPP
@@ -94,9 +88,9 @@ func CniVppAddOnHost(conf *usrsptypes.NetConf, ipData usrsptypes.IPDataType, con
 	if conf.HostConf.IfType == "memif" {
 		err = addLocalDeviceMemif(vppCh, conf, containerID, &data)
 	} else if conf.HostConf.IfType == "vhostuser" {
-		err = errors.New("GOOD: Found HostConf.IfType:" + conf.HostConf.IfType)
+		err = fmt.Errorf("GOOD: Found HostConf.IfType:" + conf.HostConf.IfType)
 	} else {
-		err = errors.New("ERROR: Unknown HostConf.IfType:" + conf.HostConf.IfType)
+		err = fmt.Errorf("ERROR: Unknown HostConf.IfType:" + conf.HostConf.IfType)
 	}
 
 	if err != nil {
@@ -109,11 +103,14 @@ func CniVppAddOnHost(conf *usrsptypes.NetConf, ipData usrsptypes.IPDataType, con
 	//
 	err = vppinterface.SetState(vppCh.Ch, data.SwIfIndex, 1)
 	if err != nil {
-		fmt.Println("Error bringing memif interface UP:", err)
+		if dbgInterface {
+			fmt.Println("Error bringing interface UP:", err)
+		}
 		return err
 	}
 
 
+	//
 	// Add L2 Network if supplied
 	//
 	if conf.HostConf.NetType == "bridge" {
@@ -124,11 +121,13 @@ func CniVppAddOnHost(conf *usrsptypes.NetConf, ipData usrsptypes.IPDataType, con
 		// will create.
 		err = vppbridge.AddBridgeInterface(vppCh.Ch, bridgeDomain, data.SwIfIndex)
 		if err != nil {
-			fmt.Println("Error:", err)
+			if dbgBridge {
+				fmt.Println("Error:", err)
+			}
 			return err
 		} else {
-			fmt.Printf("INTERFACE %d added to BRIDGE %d\n", data.SwIfIndex, bridgeDomain)
 			if dbgBridge {
+				fmt.Printf("INTERFACE %d added to BRIDGE %d\n", data.SwIfIndex, bridgeDomain)
 				vppbridge.DumpBridge(vppCh.Ch, bridgeDomain)
 			}
 		}
@@ -141,10 +140,14 @@ func CniVppAddOnHost(conf *usrsptypes.NetConf, ipData usrsptypes.IPDataType, con
 	if ipData.Address != "" {
 		err = vppinterface.AddDelIpAddress(vppCh.Ch, data.SwIfIndex, 1, ipData)
 		if err != nil {
-			fmt.Println("Error:", err)
+			if dbgInterface {
+				fmt.Println("Error:", err)
+			}
 			return err
 		} else {
-			fmt.Printf("IP %s added to INTERFACE %d\n", data.SwIfIndex, ipData.Address)
+			if dbgInterface {
+				fmt.Printf("IP %s added to INTERFACE %d\n", data.SwIfIndex, ipData.Address)
+			}
 		}
 	}
 
@@ -171,10 +174,6 @@ func CniVppDelFromHost(conf *usrsptypes.NetConf, containerID string) error {
 	var data vppdb.VppSavedData
 	var err error
 
-	// Set log level
-	//   Logrus has six logging levels: DebugLevel, InfoLevel, WarningLevel, ErrorLevel, FatalLevel and PanicLevel.
-	//core.SetLogger(&logrus.Logger{Level: logrus.InfoLevel})
-
 
 	// Create Channel to pass requests to VPP
 	vppCh,err = vppinfra.VppOpenCh()
@@ -200,7 +199,9 @@ func CniVppDelFromHost(conf *usrsptypes.NetConf, containerID string) error {
 		// Validate and convert input data
 		var bridgeDomain uint32 = uint32(conf.HostConf.BridgeConf.BridgeId)
 
-		fmt.Printf("INTERFACE %d retrieved from CONF - attempt to DELETE Bridge %d\n", data.SwIfIndex, bridgeDomain)
+		if dbgBridge {
+			fmt.Printf("INTERFACE %d retrieved from CONF - attempt to DELETE Bridge %d\n", data.SwIfIndex, bridgeDomain)
+		}
 
 
 		// Remove MemIf from Bridge. RemoveBridgeInterface() will delete Bridge if
@@ -208,11 +209,13 @@ func CniVppDelFromHost(conf *usrsptypes.NetConf, containerID string) error {
 		err = vppbridge.RemoveBridgeInterface(vppCh.Ch, bridgeDomain, data.SwIfIndex)
 
 		if err != nil {
-			fmt.Println("Error:", err)
+			if dbgBridge {
+				fmt.Println("Error:", err)
+			}
 			return err
 		} else {
-			fmt.Printf("INTERFACE %d removed from BRIDGE %d\n", data.SwIfIndex, bridgeDomain)
 			if dbgBridge {
+				fmt.Printf("INTERFACE %d removed from BRIDGE %d\n", data.SwIfIndex, bridgeDomain)
 				vppbridge.DumpBridge(vppCh.Ch, bridgeDomain)
 			}
 		}
@@ -225,9 +228,9 @@ func CniVppDelFromHost(conf *usrsptypes.NetConf, containerID string) error {
 	if conf.HostConf.IfType == "memif" {
 		return delLocalDeviceMemif(vppCh, conf, containerID, &data)
 	} else if conf.HostConf.IfType == "vhostuser" {
-		return errors.New("GOOD: Found HostConf.Type:" + conf.HostConf.IfType)
+		return fmt.Errorf("GOOD: Found HostConf.Type:" + conf.HostConf.IfType)
 	} else {
-		return errors.New("ERROR: Unknown HostConf.Type:" + conf.HostConf.IfType)
+		return fmt.Errorf("ERROR: Unknown HostConf.Type:" + conf.HostConf.IfType)
 	}
 
 	return err
@@ -245,13 +248,17 @@ func CniContainerConfig() (bool, error) {
 
 	if err == nil {
 		if found {
-			fmt.Println("ipData:")
-			fmt.Println(ipData)
+			if dbgInterface {
+				fmt.Println("ipData:")
+				fmt.Println(ipData)
+			}
 
 			err = CniVppAddOnHost(&conf, ipData, containerId)
 
 			if err != nil {
-				fmt.Println(err)
+				if dbgInterface {
+					fmt.Println(err)
+				}
 			}
 		}
 	}
@@ -308,7 +315,7 @@ func addLocalDeviceMemif(vppCh vppinfra.ConnectionData, conf *usrsptypes.NetConf
 	} else if conf.HostConf.MemifConf.Role == "slave" {
 		memifRole = vppmemif.RoleSlave
 	} else {
-		return errors.New("ERROR: Invalid MEMIF Role:" + conf.HostConf.MemifConf.Role)
+		return fmt.Errorf("ERROR: Invalid MEMIF Role:" + conf.HostConf.MemifConf.Role)
 	}
 
 	if conf.HostConf.MemifConf.Mode == "" {
@@ -321,18 +328,20 @@ func addLocalDeviceMemif(vppCh vppinfra.ConnectionData, conf *usrsptypes.NetConf
 	} else if conf.HostConf.MemifConf.Mode == "inject-punt" {
 		memifMode = vppmemif.ModePuntInject
 	} else {
-		return errors.New("ERROR: Invalid MEMIF Mode:" + conf.HostConf.MemifConf.Mode)
+		return fmt.Errorf("ERROR: Invalid MEMIF Mode:" + conf.HostConf.MemifConf.Mode)
 	}
 
 
 	// Create Memif Socket
 	data.MemifSocketId, err = vppmemif.CreateMemifSocket(vppCh.Ch, memifSocketFile)
 	if err != nil {
-		fmt.Println("Error:", err)
+		if dbgInterface {
+			fmt.Println("Error:", err)
+		}
 		return
 	} else {
-		fmt.Println("MEMIF SOCKET", data.MemifSocketId, memifSocketFile, "created")
-		if dbgMemif {
+		if dbgInterface {
+			fmt.Println("MEMIF SOCKET", data.MemifSocketId, memifSocketFile, "created")
 			vppmemif.DumpMemifSocket(vppCh.Ch)
 		}
 	}
@@ -341,11 +350,13 @@ func addLocalDeviceMemif(vppCh vppinfra.ConnectionData, conf *usrsptypes.NetConf
 	// Create MemIf Interface
 	data.SwIfIndex, err = vppmemif.CreateMemifInterface(vppCh.Ch, data.MemifSocketId, memifRole, memifMode)
 	if err != nil {
-		fmt.Println("Error:", err)
+		if dbgInterface {
+			fmt.Println("Error:", err)
+		}
 		return
 	} else {
-		fmt.Println("MEMIF", data.SwIfIndex, "created", conf.If0name)
-		if dbgMemif {
+		if dbgInterface {
+			fmt.Println("MEMIF", data.SwIfIndex, "created", conf.If0name)
 			vppmemif.DumpMemif(vppCh.Ch)
 		}
 	}
@@ -363,14 +374,15 @@ func delLocalDeviceMemif(vppCh vppinfra.ConnectionData, conf *usrsptypes.NetConf
 		memifSocketFile = filepath.Join(defaultVPPSocketDir, fileName)
 	}
 
-	fmt.Println("Delete memif interface.")
 	err = vppmemif.DeleteMemifInterface(vppCh.Ch, data.SwIfIndex)
 	if err != nil {
-		fmt.Println("Error:", err)
+		if dbgInterface {
+			fmt.Println("Error:", err)
+		}
 		return
 	} else {
-		fmt.Printf("INTERFACE %d deleted\n", data.SwIfIndex)
-		if dbgMemif {
+		if dbgInterface {
+			fmt.Printf("INTERFACE %d deleted\n", data.SwIfIndex)
 			vppmemif.DumpMemif(vppCh.Ch)
 			vppmemif.DumpMemifSocket(vppCh.Ch)
 		}

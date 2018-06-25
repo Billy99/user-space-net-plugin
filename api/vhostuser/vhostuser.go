@@ -31,6 +31,8 @@ import (
 // Constants
 //
 
+const debugVhost = false
+
 type VhostUserMode uint8
 const (
 	ModeClient    VhostUserMode = 0
@@ -58,7 +60,9 @@ func VhostUserCompatibilityCheck(ch *api.Channel) (err error) {
 		&vhost_user.SwInterfaceVhostUserDetails{},
         )
         if err != nil {
-                fmt.Println("VPP vhostUser failed compatibility")
+		if debugVhost {
+	                fmt.Println("VPP vhostUser failed compatibility")
+		}
         }
 
         return err
@@ -88,7 +92,9 @@ func CreateVhostUserInterface(ch *api.Channel, mode VhostUserMode, socketFile st
 	err = ch.SendRequest(req).ReceiveReply(reply)
 
 	if err != nil {
-		fmt.Println("Error creating vhostUser interface:", err)
+		if debugVhost {
+			fmt.Println("Error creating vhostUser interface:", err)
+		}
 		return
 	} else {
 		swIfIndex = reply.SwIfIndex
@@ -111,7 +117,9 @@ func DeleteVhostUserInterface(ch *api.Channel, swIfIndex uint32) (err error) {
 	err = ch.SendRequest(req).ReceiveReply(reply)
 
 	if err != nil {
-		fmt.Println("Error deleting vhostUser interface:", err)
+		if debugVhost {
+			fmt.Println("Error deleting vhostUser interface:", err)
+		}
 		return err
 	}
 

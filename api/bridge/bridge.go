@@ -28,6 +28,12 @@ import (
 
 
 //
+// Constants
+//
+const debugBridge = false
+
+
+//
 // API Functions
 //
 
@@ -44,7 +50,9 @@ func BridgeCompatibilityCheck(ch *api.Channel) error {
 		&l2.SwInterfaceSetL2BridgeReply{},
 	)
 	if err != nil {
-		fmt.Println("VPP memif failed compatibility")
+		if debugBridge {
+			fmt.Println("VPP memif failed compatibility")
+		}
 	}
 
 	return err
@@ -56,7 +64,9 @@ func CreateBridge(ch *api.Channel, bridgeDomain uint32) (error) {
 
 	exists,_ := findBridge(ch, bridgeDomain)
 	if exists {
-		fmt.Printf("Bridge Domain %d already exist, exit\n", bridgeDomain)
+		if debugBridge {
+			fmt.Printf("Bridge Domain %d already exist, exit\n", bridgeDomain)
+		}
 		return nil
 	}
 
@@ -78,7 +88,9 @@ func CreateBridge(ch *api.Channel, bridgeDomain uint32) (error) {
 	err := ch.SendRequest(req).ReceiveReply(reply)
 
 	if err != nil {
-		fmt.Println("Error creating bridge domain:", err)
+		if debugBridge {
+			fmt.Println("Error creating bridge domain:", err)
+		}
 		return err
 	}
 
@@ -106,7 +118,9 @@ func DeleteBridge(ch *api.Channel, bridgeDomain uint32) error {
 	err := ch.SendRequest(req).ReceiveReply(reply)
 
 	if err != nil {
-		fmt.Println("Error deleting Bridge Domain:", err)
+		if debugBridge {
+			fmt.Println("Error deleting Bridge Domain:", err)
+		}
 		return err
 	}
 
@@ -139,7 +153,9 @@ func AddBridgeInterface(ch *api.Channel, bridgeDomain uint32, swIfId uint32) (er
 	err = ch.SendRequest(req).ReceiveReply(reply)
 
 	if err != nil {
-		fmt.Println("Error adding interface to bridge domain:", err)
+		if debugBridge {
+			fmt.Println("Error adding interface to bridge domain:", err)
+		}
 		return err
 	}
 
@@ -164,7 +180,9 @@ func RemoveBridgeInterface(ch *api.Channel, bridgeDomain uint32, swIfId uint32) 
 	err := ch.SendRequest(req).ReceiveReply(reply)
 
 	if err != nil {
-		fmt.Println("Error removing interface from bridge domain:", err)
+		if debugBridge {
+			fmt.Println("Error removing interface from bridge domain:", err)
+		}
 		return err
 	}
 
@@ -243,10 +261,14 @@ func findBridge(ch *api.Channel, bridgeDomain uint32) (bool,uint32) {
 		reply := &l2.BridgeDomainDetails{}
 		stop, err := reqCtx.ReceiveReply(reply)
 		if stop {
-			fmt.Printf("Bridge Domain %d does NOT exist\n", bridgeDomain)
+			if debugBridge {
+				fmt.Printf("Bridge Domain %d does NOT exist\n", bridgeDomain)
+			}
 			break // break out of the loop
 		} else if err != nil {
-			fmt.Printf("Error searching for Bridge Domain %d\n", bridgeDomain)
+			if debugBridge {
+				fmt.Printf("Error searching for Bridge Domain %d\n", bridgeDomain)
+			}
 			break // break out of the loop
 		} else {
 			count = reply.NSwIfs

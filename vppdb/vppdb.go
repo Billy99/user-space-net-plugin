@@ -42,6 +42,7 @@ import (
 //
 const defaultBaseCNIDir = "/var/run/vpp/cni"
 const defaultLocalCNIDir = "/var/run/vpp/cni/data"
+const debugVppDb = false
 
 
 //
@@ -77,7 +78,6 @@ func SaveVppConfig(conf *usrsptypes.NetConf, containerID string, data *VppSavedD
         fileName := fmt.Sprintf("local-%s-%s.json", containerID[:12], conf.If0name)
         if dataBytes, err := json.Marshal(data); err == nil {
                 sockDir := defaultLocalCNIDir
-                // OLD: sockDir := filepath.Join(defaultCNIDir, containerID)
 
                 if _, err := os.Stat(sockDir); err != nil {
                         if os.IsNotExist(err) {
@@ -91,7 +91,9 @@ func SaveVppConfig(conf *usrsptypes.NetConf, containerID string, data *VppSavedD
 
                 path := filepath.Join(sockDir, fileName)
 
-                fmt.Printf("SAVE FILE: swIfIndex=%d path=%s dataBytes=%s\n", data.SwIfIndex, path, dataBytes)
+		if debugVppDb {
+                	fmt.Printf("SAVE FILE: swIfIndex=%d path=%s dataBytes=%s\n", data.SwIfIndex, path, dataBytes)
+		}
                 return ioutil.WriteFile(path, dataBytes, 0644)
         } else {
                 return fmt.Errorf("ERROR: serializing delegate VPP saved data: %v", err)
@@ -102,7 +104,6 @@ func LoadVppConfig(conf *usrsptypes.NetConf, containerID string, data *VppSavedD
 
 	fileName := fmt.Sprintf("local-%s-%s.json", containerID[:12], conf.If0name)
 	sockDir := defaultLocalCNIDir
-	// OLD: sockDir := filepath.Join(defaultCNIDir, containerID)
 	path := filepath.Join(sockDir, fileName)
 
 	if _, err := os.Stat(path); err == nil {
@@ -214,7 +215,9 @@ func SaveRemoteConfig(conf *usrsptypes.NetConf, ipData usrsptypes.IPDataType, co
         dataBytes, err := json.Marshal(dataCopy)
 	
 	if err == nil {
-		fmt.Printf("SAVE FILE: path=%s dataBytes=%s", path, dataBytes)
+		if debugVppDb {
+			fmt.Printf("SAVE FILE: path=%s dataBytes=%s", path, dataBytes)
+		}
 		err = ioutil.WriteFile(path, dataBytes, 0644)
 	} else {
 		return fmt.Errorf("ERROR: serializing REMOTE NetConf data: %v", err)
@@ -228,7 +231,9 @@ func SaveRemoteConfig(conf *usrsptypes.NetConf, ipData usrsptypes.IPDataType, co
 		dataBytes, err = json.Marshal(addData)
         
 		if err == nil {
-		        fmt.Printf("SAVE FILE: path=%s dataBytes=%s", path, dataBytes)
+			if debugVppDb {
+		        	fmt.Printf("SAVE FILE: path=%s dataBytes=%s", path, dataBytes)
+			}
 			err = ioutil.WriteFile(path, dataBytes, 0644)
 		} else {
 			return fmt.Errorf("ERROR: serializing ADDDATA NetConf data: %v", err)
@@ -330,24 +335,33 @@ func FileCleanup(directory string, filepath string) (err error) {
 func findFile(filePath string) (bool, []byte, error) {
 	var found bool = false
 
-
-	fmt.Println(filePath)
+	if debugVppDb {
+		fmt.Println(filePath)
+	}
 	matches, err := filepath.Glob(filePath)
 
 	if err != nil {
-		fmt.Println(err)
+		if debugVppDb {
+			fmt.Println(err)
+		}
 		return found, nil, err
 	}
 
-	fmt.Println(matches)
+	if debugVppDb {
+		fmt.Println(matches)
+	}
 
 	for i := range matches {
-                fmt.Printf("PROCESSING FILE: path=%s\n", matches[i])
+		if debugVppDb {
+                	fmt.Printf("PROCESSING FILE: path=%s\n", matches[i])
+		}
 
 		found = true
 
 		if dataBytes, err := ioutil.ReadFile(matches[i]); err == nil {
-                	fmt.Printf("FILE DATA:\n%s\n", dataBytes)
+			if debugVppDb {
+	                	fmt.Printf("FILE DATA:\n%s\n", dataBytes)
+			}
 
 			// Delete file (and directory if empty)
 			FileCleanup("", matches[i])
