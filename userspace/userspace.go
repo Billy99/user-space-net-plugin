@@ -21,14 +21,15 @@ import (
 	"runtime"
 
 	"github.com/containernetworking/cni/pkg/ipam"
+	"github.com/containernetworking/cni/pkg/ns"
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/cni/pkg/types"
+	"github.com/containernetworking/cni/pkg/types/current"
 
 	"github.com/Billy99/cnivpp/cnivpp"
 
 	"github.com/Billy99/user-space-net-plugin/usrsptypes"
 )
-
 
 func init() {
 	// this ensures that main runs only on main thread (thread group leader).
@@ -41,16 +42,15 @@ func init() {
 // Local functions
 //
 
-// loadNetConf() - Unmarshall the inputdata into the NetConf Structure 
+// loadNetConf() - Unmarshall the inputdata into the NetConf Structure
 func loadNetConf(bytes []byte) (*usrsptypes.NetConf, error) {
 	n := &usrsptypes.NetConf{}
 	if err := json.Unmarshal(bytes, n); err != nil {
 		return nil, fmt.Errorf("failed to load netconf: %v", err)
 	}
 
-	return n, nil
+	return n, n.CNIVersion, nil
 }
-
 
 func cmdAdd(args *skel.CmdArgs) error {
 	var ipamResult *types.Result
@@ -59,13 +59,11 @@ func cmdAdd(args *skel.CmdArgs) error {
 	var ipData usrsptypes.IPDataType
 	var prefix int
 
-
 	// Convert the input bytestream into local NetConf structure
-	netConf, err := loadNetConf(args.StdinData)
+	netConf, cniVersion, err := loadNetConf(args.StdinData)
 	if err != nil {
 		return err
 	}
-
 
 	//
 	// HOST:
@@ -82,7 +80,6 @@ func cmdAdd(args *skel.CmdArgs) error {
 	} else {
 		return errors.New("ERROR: Unknown Host Engine:" + netConf.HostConf.Engine)
 	}
-
 
 	//
 	// CONTAINER:
@@ -104,22 +101,36 @@ func cmdAdd(args *skel.CmdArgs) error {
 		//	DNS        types.DNS `json:"dns,omitempty"`
 		//}
 
-
 		// run the IPAM plugin and get back the config to apply
 		ipamResult, err = ipam.ExecAdd(netConf.IPAM.Type, args.StdinData)
 		if err != nil {
 			return fmt.Errorf("failed to set up IPAM: %v", err)
 		}
 
+		defer func() {
+			if err != nil {
+				ipam.ExecDel(netConf.IPAM.Type, args.StdinData)
+			}
+		}()
+
+		result, err := current.NewResultFromResult(ipamResult)
+		if err != nil {
+			return err
+		}
+
+		if len(result.IPs) == 0 {
+			return errors.New("IPAM plugin returned missing IP config")
+		}
+
 		if ipamResult.IP4 != nil {
-			ipData.IsIpv6  = 0
+			ipData.IsIpv6 = 0
 			ipData.Address = ipamResult.IP4.IP.IP.String()
-			prefix, _   = ipamResult.IP4.IP.Mask.Size()
+			prefix, _ = ipamResult.IP4.IP.Mask.Size()
 			ipData.AddressLength = byte(prefix)
 		} else if ipamResult.IP6 != nil {
-			ipData.IsIpv6  = 1
+			ipData.IsIpv6 = 1
 			ipData.Address = ipamResult.IP6.IP.IP.String()
-			prefix, _   = ipamResult.IP6.IP.Mask.Size()
+			prefix, _ = ipamResult.IP6.IP.Mask.Size()
 			ipData.AddressLength = byte(prefix)
 		}
 	}
@@ -131,7 +142,6 @@ func cmdAdd(args *skel.CmdArgs) error {
 	} else {
 		containerEngine = netConf.HostConf.Engine
 	}
- 
 	// Add the requested interface and network
 	if containerEngine == "vpp" {
 		err = cnivpp.CniVppAddOnContainer(netConf, ipData, args.ContainerID)
@@ -144,7 +154,9 @@ func cmdAdd(args *skel.CmdArgs) error {
 		return errors.New("ERROR: Unknown Container Engine:" + containerEngine)
 	}
 
-	return nil
+	result.DNS = netConf.DNS
+
+	return types.PrintResult(result, cniVersion)
 }
 
 func cmdDel(args *skel.CmdArgs) error {
@@ -157,6 +169,30 @@ func cmdDel(args *skel.CmdArgs) error {
 		return err
 	}
 
+	err = ipam.ExecDel(netConf.IPAM.Type, args.StdinData)
+	if err != nil {
+		return err
+	}
+
+	if args.Netns == "" {
+		return nil
+	}
+
+	netns, err := ns.GetNS(args.Netns)
+	if err != nil {
+		if err != nil {
+			//  if NetNs is passed down by the CEO, or if it called multiple times
+			// so don't return an error if the device is already removed.
+			// https://github.com/kubernetes/kubernetes/issues/43014#issuecomment-287164444
+			_, ok := err.(ns.NSPathNotExistErr)
+			if ok {
+				return nil
+			}
+
+			return fmt.Errorf("failed to open netns %q: %v", netns, err)
+		}
+	}
+	defer netns.Close()
 
 	//
 	// HOST:
@@ -173,7 +209,6 @@ func cmdDel(args *skel.CmdArgs) error {
 	} else {
 		return errors.New("ERROR: Unknown Host Engine:" + netConf.HostConf.Engine)
 	}
-
 
 	//
 	// CONTAINER
