@@ -16,13 +16,14 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"runtime"
 
-	"github.com/containernetworking/cni/pkg/ipam"
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/cni/pkg/types"
+	"github.com/containernetworking/cni/pkg/ipam"
+	//"github.com/containernetworking/cni/pkg/types/current"
+	//"github.com/containernetworking/plugins/pkg/ipam"
 
 	"github.com/Billy99/cnivpp/cnivpp"
 
@@ -53,7 +54,7 @@ func loadNetConf(bytes []byte) (*usrsptypes.NetConf, error) {
 
 
 func cmdAdd(args *skel.CmdArgs) error {
-	var ipamResult *types.Result
+	var r *types.Result
 	var netConf *usrsptypes.NetConf
 	var containerEngine string
 	var ipData usrsptypes.IPDataType
@@ -78,9 +79,9 @@ func cmdAdd(args *skel.CmdArgs) error {
 			return err
 		}
 	} else if netConf.HostConf.Engine == "ovs-dpdk" {
-		return errors.New("GOOD: Found Host Engine:" + netConf.HostConf.Engine + " - NOT SUPPORTED")
+		return fmt.Errorf("GOOD: Found Host Engine:" + netConf.HostConf.Engine + " - NOT SUPPORTED")
 	} else {
-		return errors.New("ERROR: Unknown Host Engine:" + netConf.HostConf.Engine)
+		return fmt.Errorf("ERROR: Unknown Host Engine:" + netConf.HostConf.Engine)
 	}
 
 
@@ -106,20 +107,27 @@ func cmdAdd(args *skel.CmdArgs) error {
 
 
 		// run the IPAM plugin and get back the config to apply
-		ipamResult, err = ipam.ExecAdd(netConf.IPAM.Type, args.StdinData)
+		r, err = ipam.ExecAdd(netConf.IPAM.Type, args.StdinData)
 		if err != nil {
-			return fmt.Errorf("failed to set up IPAM: %v", err)
+			return err
 		}
 
-		if ipamResult.IP4 != nil {
+		// Convert whatever the IPAM result was into the current Result type
+		//result, err = current.NewResultFromResult(r)
+		//if err != nil {
+		//	return err
+		//}
+
+		// TBD: Convert to use new structure (result)
+		if r.IP4 != nil {
 			ipData.IsIpv6  = 0
-			ipData.Address = ipamResult.IP4.IP.IP.String()
-			prefix, _   = ipamResult.IP4.IP.Mask.Size()
+			ipData.Address = r.IP4.IP.IP.String()
+			prefix, _ = r.IP4.IP.Mask.Size()
 			ipData.AddressLength = byte(prefix)
-		} else if ipamResult.IP6 != nil {
+		} else if r.IP6 != nil {
 			ipData.IsIpv6  = 1
-			ipData.Address = ipamResult.IP6.IP.IP.String()
-			prefix, _   = ipamResult.IP6.IP.Mask.Size()
+			ipData.Address = r.IP6.IP.IP.String()
+			prefix, _ = r.IP6.IP.Mask.Size()
 			ipData.AddressLength = byte(prefix)
 		}
 	}
@@ -139,12 +147,12 @@ func cmdAdd(args *skel.CmdArgs) error {
 			return err
 		}
 	} else if containerEngine == "ovs-dpdk" {
-		return errors.New("GOOD: Found Container Engine:" + containerEngine + " - NOT SUPPORTED")
+		return fmt.Errorf("GOOD: Found Container Engine:" + containerEngine + " - NOT SUPPORTED")
 	} else {
-		return errors.New("ERROR: Unknown Container Engine:" + containerEngine)
+		return fmt.Errorf("ERROR: Unknown Container Engine:" + containerEngine)
 	}
 
-	return nil
+	return r.Print()
 }
 
 func cmdDel(args *skel.CmdArgs) error {
@@ -169,9 +177,9 @@ func cmdDel(args *skel.CmdArgs) error {
 			return err
 		}
 	} else if netConf.HostConf.Engine == "ovs-dpdk" {
-		return errors.New("GOOD: Found Host Engine:" + netConf.HostConf.Engine + " - NOT SUPPORTED")
+		return fmt.Errorf("GOOD: Found Host Engine:" + netConf.HostConf.Engine + " - NOT SUPPORTED")
 	} else {
-		return errors.New("ERROR: Unknown Host Engine:" + netConf.HostConf.Engine)
+		return fmt.Errorf("ERROR: Unknown Host Engine:" + netConf.HostConf.Engine)
 	}
 
 
@@ -194,9 +202,20 @@ func cmdDel(args *skel.CmdArgs) error {
 			return err
 		}
 	} else if containerEngine == "ovs-dpdk" {
-		return errors.New("GOOD: Found Container Engine:" + containerEngine + " - NOT SUPPORTED")
+		return fmt.Errorf("GOOD: Found Container Engine:" + containerEngine + " - NOT SUPPORTED")
 	} else {
-		return errors.New("ERROR: Unknown Container Engine:" + containerEngine)
+		return fmt.Errorf("ERROR: Unknown Container Engine:" + containerEngine)
+	}
+
+
+	//
+	// Cleanup IPAM data, if provided.
+	//
+	if netConf.IPAM.Type != "" {
+		err = ipam.ExecDel(netConf.IPAM.Type, args.StdinData)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
