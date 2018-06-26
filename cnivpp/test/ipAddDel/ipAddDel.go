@@ -30,10 +30,9 @@ import (
 	_ "git.fd.io/govpp.git/core"
 
 	"github.com/Billy99/user-space-net-plugin/usrsptypes"
-
-	"github.com/Billy99/cnivpp/api/infra"
-	"github.com/Billy99/cnivpp/api/memif"
-	"github.com/Billy99/cnivpp/api/interface"
+	"github.com/Billy99/user-space-net-plugin/cnivpp/api/infra"
+	"github.com/Billy99/user-space-net-plugin/cnivpp/api/memif"
+	"github.com/Billy99/user-space-net-plugin/cnivpp/api/interface"
 )
 
 //

@@ -2,9 +2,7 @@
 VPP CNI Library is written in GO and used by UserSpace CNI to interface with the
 VPP GO-API. The UserSpace CNI is a CNI implementation designed to implement
 User Space networking (as apposed to kernel space networking), like DPDK based
-applications. For example VPP and OVS-DPDK. The UserSpace CNI is located in:
-https://github.com/Billy99/user-space-net-plugin
-It has documentation on how to setup config files to seed the CNI.
+applications. For example VPP and OVS-DPDK.
 
 
 The UserSpace CNI, based on the input config data, uses this library to add
@@ -70,18 +68,6 @@ sudo systemctl enable vpp
 For installing VPP on other distros, see:
 https://wiki.fd.io/view/VPP/Installing_VPP_binaries_from_packages
 
-## Build VPP CNI
-VPP CNI depends on data structure defined in UserSpace CNI. So install
-both repos and call make:
-```
-cd $GOPATH/src/
-go get github.com/Billy99/user-space-net-plugin
-go get github.com/Billy99/cnivpp
-
-cd $GOPATH/src/github.com/Billy99/cnivpp
-make
-```
-
 # Test
 UserSpace CNI README.md describes how to test with VPP CNI. Below are a
 few notes regarding packages in this repo.
@@ -90,11 +76,11 @@ few notes regarding packages in this repo.
 The ***vpp-app*** is intended to run in a container. It leverages the VPP CNI code
 to consume interfaces in the container.
 
-## docker/vpp-centos-userspace-cni/
+## cnivpp/docker/vpp-centos-userspace-cni/
 The docker image ***vpp-centos-userspace-cni*** runs a VPP instance and the
 vpp-app at startup. 
 
-## vppdb
+## cnivpp/vppdb
 vppdb is use to store data in a DB. For the local VPP instance, the vppdb is
 used to store the swIndex generated when the interface is created. It is used
 later to delete the interface. The vppdb is also used to pass configuration

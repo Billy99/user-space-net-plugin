@@ -29,9 +29,9 @@ import (
 	_ "github.com/sirupsen/logrus"
 	_ "git.fd.io/govpp.git/core"
 
-	"github.com/Billy99/cnivpp/api/infra"
-	"github.com/Billy99/cnivpp/api/memif"
-	"github.com/Billy99/cnivpp/api/bridge"
+	"github.com/Billy99/user-space-net-plugin/cnivpp/api/infra"
+	"github.com/Billy99/user-space-net-plugin/cnivpp/api/memif"
+	"github.com/Billy99/user-space-net-plugin/cnivpp/api/bridge"
 )
 
 //

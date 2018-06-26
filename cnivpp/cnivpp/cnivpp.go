@@ -32,14 +32,12 @@ import (
 	"path/filepath"
 
 	"github.com/Billy99/user-space-net-plugin/usrsptypes"
-
-	"github.com/Billy99/cnivpp/api/bridge"
-	"github.com/Billy99/cnivpp/api/infra"
-	"github.com/Billy99/cnivpp/api/interface"
-	"github.com/Billy99/cnivpp/api/memif"
-	"github.com/Billy99/cnivpp/api/vhostuser"
-
-	"github.com/Billy99/cnivpp/vppdb"
+	"github.com/Billy99/user-space-net-plugin/cnivpp/api/bridge"
+	"github.com/Billy99/user-space-net-plugin/cnivpp/api/infra"
+	"github.com/Billy99/user-space-net-plugin/cnivpp/api/interface"
+	"github.com/Billy99/user-space-net-plugin/cnivpp/api/memif"
+	"github.com/Billy99/user-space-net-plugin/cnivpp/api/vhostuser"
+	"github.com/Billy99/user-space-net-plugin/cnivpp/vppdb"
 )
 
 //

@@ -30,7 +30,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Billy99/cnivpp/cnivpp"
+	"github.com/Billy99/user-space-net-plugin/cnivpp/cnivpp"
 )
 
 //

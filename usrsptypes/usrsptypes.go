@@ -38,7 +38,8 @@ type BridgeConf struct {
 type UserSpaceConf struct {
 	// The Container Instance will default to the Host Instance value if a given attribute
 	// is not provided. However, they are not required to be the same and a Container
-	// attribute can be provided to override.  
+	// attribute can be provided to override. All values are listed as 'omitempty' to
+	// allow the Container struct to be empty where desired. 
 	Engine     string `json:"engine,omitempty"`    // CNI Implementation {vpp|ovs|ovs-dpdk|linux}
 	IfType     string `json:"iftype,omitempty"`    // Type of interface {memif|vhostuser|veth|tap}
 	NetType    string `json:"netType,omitempty"`   // Interface network type {none|bridge|interface}
@@ -50,9 +51,9 @@ type UserSpaceConf struct {
 type NetConf struct {
 	types.NetConf
 	Name           string        `json:"name"`
-	If0name        string        `json:"if0name"`
-        HostConf       UserSpaceConf `json:"host,omitempty"`
-        ContainerConf  UserSpaceConf `json:"container,omitempty"`
+	If0name        string        `json:"if0name,omitempty"`    // Interface name
+	HostConf       UserSpaceConf `json:"host,omitempty"`
+	ContainerConf  UserSpaceConf `json:"container,omitempty"`
 }
 
 

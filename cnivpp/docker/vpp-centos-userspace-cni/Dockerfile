@@ -24,10 +24,9 @@ RUN yum install -y git golang make
 # Build the vpp-app
 WORKDIR /root/go/src/github.com/Billy99/
 RUN git clone https://github.com/Billy99/user-space-net-plugin
-RUN git clone https://github.com/Billy99/cnivpp
-WORKDIR /root/go/src/github.com/Billy99/cnivpp
-RUN make
-RUN cp vpp-app/vpp-app /usr/sbin/vpp-app
+WORKDIR /root/go/src/github.com/Billy99/user-space-net-plugin
+RUN make extras
+RUN cp cnivpp/vpp-app/vpp-app /usr/sbin/vpp-app
 
 
 # -------- Import stage.

@@ -5,10 +5,6 @@ This directory contains the files needed to build the docker image located in:
 This image is based on CentOS (latest) base image built with VPP 18.04 and a
 VPP User Space CNI application (vpp-app). Source code for the vpp-app is in this
 same repo:
-   https://github.com/Billy99/cnivpp
-
-The VPP User Space CNI application (vpp-app) is intended to be used with the
-User Space CNI:
    https://github.com/Billy99/user-space-net-plugin
 
 The User Space CNI inconjunction with the VPP CNI Library (cnivpp) creates
@@ -22,25 +18,40 @@ debugging.
 
 
 # Build Instructions for vpp-centos-userspace-cni Docker Image
-Get the **cnivpp** library:
+Get the **user-space-net-plugin** repo:
 ```
    cd $GOPATH/src/
-   go get github.com/Billy99/cnivpp
-```
-
-Build the **cnivpp** library to get the **vpp-app** binary:
-```
-   cd $GOPATH/src/github.com/Billy99/cnivpp
-   make
-   cp vpp-app/vpp-app docker/vpp-centos-userspace-cni/.
+   go get github.com/Billy99/user-space-net-plugin
 ```
 
 Build the docker image:
 ```
-   cd $GOPATH/src/github.com/Billy99/cnivpp/docker/vpp-centos-userspace-cni/
+   cd $GOPATH/src/github.com/Billy99/user-space-net-plugin/cnivpp/docker/vpp-centos-userspace-cni/
    docker build --rm -t vpp-centos-userspace-cni .
 ```
 
+## Development Image
+The above process pulls the **vpp-app** from the upstream source. If there are
+local changes that need to be tested, then build **user-space-net-plugin** to
+get the **vpp-app** binary and copy the **vpp-app** into the image directory:
+```
+   cd $GOPATH/src/github.com/Billy99/user-space-net-plugin/
+   make
+   cp cnivpp/vpp-app/vpp-app cnivpp/docker/vpp-centos-userspace-cni/.
+```
+
+Update the **Dockerfile** to use the local binary by uncommenting the COPY
+command. Make sure not to check this change in.
+```
+   vi cnivpp/docker/vpp-centos-userspace-cni/Dockerfile
+   :
+   
+   # For Development, overwrite repo generated vpp-app with local development binary.
+   # Needs to be commented out before each merge.
+   #COPY vpp-app /usr/sbin/vpp-app
+```
+
+Build the docker image as described above.
 
 # To run
 Up to this point, all my testing with this container has been with the
@@ -62,12 +73,6 @@ sudo CNI_PATH=$CNI_PATH GOPATH=$GOPATH ./scripts/vpp-docker-run.sh -it --privile
 
 # vpp-centos-userspace-cni Docker Image Nuances
 Below are a couple points about the image that will probably need to change:
-
-
-## vpp-app
-This image currently requires the **vpp-app** to be built outside of docker
-image. Next merge, it will be built as part of the image. Until that happens,
-don't update the VPP release version (next bullet).
 
 
 ## VPP Version

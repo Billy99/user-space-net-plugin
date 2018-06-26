@@ -25,18 +25,6 @@ are not my strong suit.
 
 
 # Build
-## CNI VPP Library
-This package currently depends on the **cnivpp** library, which is still being
-developed and is a moving target. So it has not been added to the *vendor*
-directory yet. All other dependancies are in the *vendor* directory (copied
-from **Vhostuser CNI plugin**, so at the same version). To get the **cnivpp**
-library:
-```
-   cd $GOPATH/src/
-   go get github.com/Billy99/cnivpp
-```
-
-## User Space CNI Plugin
 To get and build the **userspace** plugin:
 ```
    cd $GOPATH/src/

@@ -20,14 +20,17 @@ import (
 	"runtime"
 
 	"github.com/containernetworking/cni/pkg/skel"
-	"github.com/containernetworking/cni/pkg/types"
-	"github.com/containernetworking/cni/pkg/ipam"
-	//"github.com/containernetworking/cni/pkg/types/current"
-	//"github.com/containernetworking/plugins/pkg/ipam"
-
-	"github.com/Billy99/cnivpp/cnivpp"
+	cnitypes "github.com/containernetworking/cni/pkg/types"
+	"github.com/containernetworking/cni/pkg/types/current"
+	cniSpecVersion "github.com/containernetworking/cni/pkg/version"
+	"github.com/containernetworking/plugins/pkg/ip"
+	"github.com/containernetworking/plugins/pkg/ipam"
+	"github.com/containernetworking/plugins/pkg/ns"
 
 	"github.com/Billy99/user-space-net-plugin/usrsptypes"
+	"github.com/Billy99/user-space-net-plugin/cnivpp/cnivpp"
+
+	"github.com/vishvananda/netlink"
 )
 
 
@@ -54,7 +57,7 @@ func loadNetConf(bytes []byte) (*usrsptypes.NetConf, error) {
 
 
 func cmdAdd(args *skel.CmdArgs) error {
-	var r *types.Result
+	var result *current.Result
 	var netConf *usrsptypes.NetConf
 	var containerEngine string
 	var ipData usrsptypes.IPDataType
@@ -107,30 +110,54 @@ func cmdAdd(args *skel.CmdArgs) error {
 
 
 		// run the IPAM plugin and get back the config to apply
-		r, err = ipam.ExecAdd(netConf.IPAM.Type, args.StdinData)
+		ipamResult, err := ipam.ExecAdd(netConf.IPAM.Type, args.StdinData)
 		if err != nil {
 			return err
 		}
 
 		// Convert whatever the IPAM result was into the current Result type
-		//result, err = current.NewResultFromResult(r)
-		//if err != nil {
-		//	return err
-		//}
-
-		// TBD: Convert to use new structure (result)
-		if r.IP4 != nil {
-			ipData.IsIpv6  = 0
-			ipData.Address = r.IP4.IP.IP.String()
-			prefix, _ = r.IP4.IP.Mask.Size()
-			ipData.AddressLength = byte(prefix)
-		} else if r.IP6 != nil {
-			ipData.IsIpv6  = 1
-			ipData.Address = r.IP6.IP.IP.String()
-			prefix, _ = r.IP6.IP.Mask.Size()
-			ipData.AddressLength = byte(prefix)
+		result, err = current.NewResultFromResult(ipamResult)
+		if err != nil {
+			// TBD: CLEAN-UP 
+			return err
 		}
+
+		if len(result.IPs) == 0  {
+			// TBD: CLEAN-UP 
+			return fmt.Errorf("ERROR: Unable to get IP Address")
+		}
+
+		// Map result to local usrtype structure.
+		// TBD: Convert cnivpp to use new structure (result)
+		//      This is here from when cnivpp was in its own repo and
+		//      vendor issue with using different versions (different
+		//      vendor directories) of IPAM.
+		for _, ip := range result.IPs {
+			if ip.Version == "4" {
+				ipData.IsIpv6  = 0
+				ipData.Address = ip.Address.IP.String()
+				prefix, _ = ip.Address.Mask.Size()
+				ipData.AddressLength = byte(prefix)
+			} else if ip.Version == "6" {
+				ipData.IsIpv6  = 1
+				ipData.Address = ip.Address.IP.String()
+				prefix, _ = ip.Address.Mask.Size()
+				ipData.AddressLength = byte(prefix)
+			}
+
+			// Only one address is currently supported.
+			if ipData.Address != "" {
+				break
+			}
+		}
+
+		// Clear out the Gateway if set by IPAM, not being used.
+		for _, ip := range result.IPs {
+			ip.Gateway = nil
+		}
+
 	}
+
 
 	// Determine the Engine that will process the request. Default to host
 	// if not provided.
@@ -152,7 +179,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 		return fmt.Errorf("ERROR: Unknown Container Engine:" + containerEngine)
 	}
 
-	return r.Print()
+	return  cnitypes.PrintResult(result, netConf.CNIVersion)
 }
 
 func cmdDel(args *skel.CmdArgs) error {
@@ -218,9 +245,29 @@ func cmdDel(args *skel.CmdArgs) error {
 		}
 	}
 
+	//
+	// Cleanup Namespace
+	//
+	if args.Netns == "" {
+		return nil
+	}
+
+	err = ns.WithNetNSPath(args.Netns, func(_ ns.NetNS) error {
+		var err error
+		_, err = ip.DelLinkByNameAddr(args.IfName, netlink.FAMILY_V4)
+		if err != nil && err == ip.ErrLinkNotFound {
+			return nil
+		}
+		return err
+	})
+
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
 func main() {
-	skel.PluginMain(cmdAdd, cmdDel)
+	skel.PluginMain(cmdAdd, cmdDel, cniSpecVersion.All)
 }
