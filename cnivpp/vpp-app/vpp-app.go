@@ -25,7 +25,6 @@
 
 package main
 
-
 import (
 	"fmt"
 	"time"
@@ -37,11 +36,9 @@ import (
 // Constants
 //
 
-
 //
 // Types
 //
-
 
 //
 // API Functions
@@ -62,7 +59,6 @@ func main() {
 
 		fmt.Println("LOOP", count, " - FOUND:", found)
 
-
 		//
 		// Once files have been found, wait 1 more loop and exit.
 		//
@@ -79,8 +75,6 @@ func main() {
 			}
 		}
 
-
-		time.Sleep(20 * time.Second) 
+		time.Sleep(20 * time.Second)
 	}
 }
-

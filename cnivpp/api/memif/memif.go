@@ -27,7 +27,6 @@ import (
 	"git.fd.io/govpp.git/core/bin_api/memif"
 )
 
-
 //
 // Constants
 //
@@ -35,51 +34,50 @@ import (
 const debugMemif = false
 
 type MemifRole uint8
+
 const (
-	RoleMaster  MemifRole = 0
-	RoleSlave   MemifRole = 1
+	RoleMaster MemifRole = 0
+	RoleSlave  MemifRole = 1
 )
 
 type MemifMode uint8
+
 const (
-	ModeEthernet    MemifMode = 0
-	ModeIP          MemifMode = 1
-	ModePuntInject  MemifMode = 2
+	ModeEthernet   MemifMode = 0
+	ModeIP         MemifMode = 1
+	ModePuntInject MemifMode = 2
 )
 
 // Dump Strings
-var modeStr = [...]string{"eth","ip ","pnt"}
-var roleStr = [...]string{"master","slave "}
-var stateStr = [...]string{"dn","up"}
-
+var modeStr = [...]string{"eth", "ip ", "pnt"}
+var roleStr = [...]string{"master", "slave "}
+var stateStr = [...]string{"dn", "up"}
 
 //
 // API Functions
 //
 
-
 // Check whether generated API messages are compatible with the version
 // of VPP which the library is connected to.
 func MemifCompatibilityCheck(ch *api.Channel) (err error) {
-        err = ch.CheckMessageCompatibility(
-                &memif.MemifSocketFilenameAddDel{},
-                &memif.MemifCreate{},
-                &memif.MemifDelete{},
-                &memif.MemifSocketFilenameDetails{},
-                &memif.MemifSocketFilenameDump{},
-                &memif.MemifDump{},
-        )
-        if err != nil {
+	err = ch.CheckMessageCompatibility(
+		&memif.MemifSocketFilenameAddDel{},
+		&memif.MemifCreate{},
+		&memif.MemifDelete{},
+		&memif.MemifSocketFilenameDetails{},
+		&memif.MemifSocketFilenameDump{},
+		&memif.MemifDump{},
+	)
+	if err != nil {
 		if debugMemif {
-	                fmt.Println("VPP memif failed compatibility")
+			fmt.Println("VPP memif failed compatibility")
 		}
-        }
+	}
 
-        return err
+	return err
 }
 
-
-// Attempt to create a MemIf Interface. 
+// Attempt to create a MemIf Interface.
 // Input:
 //   ch *api.Channel
 //   socketId uint32
@@ -88,14 +86,14 @@ func CreateMemifInterface(ch *api.Channel, socketId uint32, role MemifRole, mode
 
 	// Populate the Add Structure
 	req := &memif.MemifCreate{
-		Role: uint8(role),
-		Mode: uint8(mode),
+		Role:     uint8(role),
+		Mode:     uint8(mode),
 		RxQueues: 1,
 		TxQueues: 1,
-		ID: 0,
+		ID:       0,
 		SocketID: socketId,
 		//Secret: "",
-		RingSize: 1024,
+		RingSize:   1024,
 		BufferSize: 2048,
 		//HwAddr: "",
 	}
@@ -116,14 +114,13 @@ func CreateMemifInterface(ch *api.Channel, socketId uint32, role MemifRole, mode
 	return
 }
 
-
 // Attempt to delete a memif interface. If the deleted MemIf Interface
 // is the last interface associated with a socketfile, this function
 // will attempt to delete it.
 func DeleteMemifInterface(ch *api.Channel, swIfIndex uint32) (err error) {
 
 	// Determine if memif interface exists
-	socketId,exist := findMemifInterface(ch, swIfIndex)
+	socketId, exist := findMemifInterface(ch, swIfIndex)
 	if debugMemif {
 		if exist == false {
 			fmt.Printf("Error deleting memif interface: memif interface (swIfIndex=%d) Does NOT Exist", swIfIndex)
@@ -169,13 +166,12 @@ func DeleteMemifInterface(ch *api.Channel, swIfIndex uint32) (err error) {
 	return err
 }
 
-
 // Dump the set of existing memif interfaces to stdout.
 func DumpMemif(ch *api.Channel) {
 	var count int
 
-        // Populate the Message Structure
-        req := &memif.MemifDump{}
+	// Populate the Message Structure
+	req := &memif.MemifDump{}
 	reqCtx := ch.SendMultiRequest(req)
 
 	fmt.Printf("Memif Interface List:\n")
@@ -186,7 +182,7 @@ func DumpMemif(ch *api.Channel) {
 			break // break out of the loop
 		}
 		if err != nil {
-                	fmt.Println("Error dumping memif interface:", err)
+			fmt.Println("Error dumping memif interface:", err)
 		}
 		//fmt.Printf("%+v\n", reply)
 
@@ -210,11 +206,10 @@ func DumpMemif(ch *api.Channel) {
 	fmt.Printf("  Interface Count: %d\n", count)
 }
 
-
 // API to Create the MemIf Socketfile.
 func CreateMemifSocket(ch *api.Channel, socketFile string) (socketId uint32, err error) {
 
-	found,socketId := findMemifSocket(ch, socketFile)
+	found, socketId := findMemifSocket(ch, socketFile)
 	if found {
 		fmt.Println("Socketfile already exists")
 		return
@@ -226,8 +221,8 @@ func CreateMemifSocket(ch *api.Channel, socketFile string) (socketId uint32, err
 
 	// Populate the Request Structure
 	req := &memif.MemifSocketFilenameAddDel{
-		IsAdd: 1,
-		SocketID: socketId,
+		IsAdd:          1,
+		SocketID:       socketId,
 		SocketFilename: []byte(socketFile),
 	}
 
@@ -250,7 +245,7 @@ func CreateMemifSocket(ch *api.Channel, socketFile string) (socketId uint32, err
 func DeleteMemifSocket(ch *api.Channel, socketId uint32) (err error) {
 	// Populate the Add Structure
 	req := &memif.MemifSocketFilenameAddDel{
-		IsAdd: 0,
+		IsAdd:    0,
 		SocketID: socketId,
 	}
 
@@ -269,13 +264,12 @@ func DeleteMemifSocket(ch *api.Channel, socketId uint32) (err error) {
 	return
 }
 
-
 // Dump the set of existing memif socketfiles to stdout.
 func DumpMemifSocket(ch *api.Channel) {
 	var count int
 
-        // Populate the Message Structure
-        req := &memif.MemifSocketFilenameDump{}
+	// Populate the Message Structure
+	req := &memif.MemifSocketFilenameDump{}
 	reqCtx := ch.SendMultiRequest(req)
 
 	fmt.Printf("Memif Socket List:\n")
@@ -286,19 +280,18 @@ func DumpMemifSocket(ch *api.Channel) {
 			break // break out of the loop
 		}
 		if err != nil {
-                	fmt.Println("Error dumping memif socket:", err)
+			fmt.Println("Error dumping memif socket:", err)
 		}
 		//fmt.Printf("%+v\n", reply)
 
-		socketId := reply.SocketID;
-		filename := string(reply.SocketFilename);
+		socketId := reply.SocketID
+		filename := string(reply.SocketFilename)
 		fmt.Printf("    SocketId=%d Filename=%s\n", socketId, filename)
 		count++
 	}
 
 	fmt.Printf("  Socket Count: %d\n", count)
 }
-
 
 //
 // Local Functions
@@ -307,8 +300,8 @@ func DumpMemifSocket(ch *api.Channel) {
 // Find the given memif interface and return socketId if it exists
 func findMemifInterface(ch *api.Channel, swIfIndex uint32) (socketId uint32, found bool) {
 
-        // Populate the Message Structure
-        req := &memif.MemifDump{}
+	// Populate the Message Structure
+	req := &memif.MemifDump{}
 	reqCtx := ch.SendMultiRequest(req)
 
 	for {
@@ -319,22 +312,21 @@ func findMemifInterface(ch *api.Channel, swIfIndex uint32) (socketId uint32, fou
 		}
 		if err != nil {
 			if debugMemif {
-	                	fmt.Println("Error searching memif interface:", err)
+				fmt.Println("Error searching memif interface:", err)
 			}
 		} else if swIfIndex == reply.SwIfIndex {
-			found = true;
+			found = true
 			socketId = reply.SocketID
 		}
 	}
 	return
 }
 
-
 // Loop through the memif interfaces and return the number of interfaces using the given socketId
 func findMemifSocketCnt(ch *api.Channel, socketId uint32) (count uint32) {
 
-        // Populate the Message Structure
-        req := &memif.MemifDump{}
+	// Populate the Message Structure
+	req := &memif.MemifDump{}
 	reqCtx := ch.SendMultiRequest(req)
 
 	for {
@@ -345,7 +337,7 @@ func findMemifSocketCnt(ch *api.Channel, socketId uint32) (count uint32) {
 		}
 		if err != nil {
 			if debugMemif {
-	                	fmt.Println("Error searching memif interface:", err)
+				fmt.Println("Error searching memif interface:", err)
 			}
 		} else if socketId == reply.SocketID {
 			count++
@@ -353,7 +345,6 @@ func findMemifSocketCnt(ch *api.Channel, socketId uint32) (count uint32) {
 	}
 	return
 }
-
 
 // Loop through the list of Memif Sockets and determine if input
 // socketId exists.
@@ -382,7 +373,6 @@ func findMemifSocketCnt(ch *api.Channel, socketId uint32) (count uint32) {
 //	return
 //}
 
-
 // Loop through the list of Memif Sockets and determine if input
 // socketFile exists. If it does, return the associated socketId.
 // If it doesn't, return the next available socketId.
@@ -400,7 +390,6 @@ func findMemifSocket(ch *api.Channel, socketFilename string) (found bool, socket
 	req := &memif.MemifSocketFilenameDump{}
 	reqCtx := ch.SendMultiRequest(req)
 
-
 	//
 	// Loop through the exisiting SocketFiles and see if input
 	// socketFilename already exists,
@@ -413,7 +402,7 @@ func findMemifSocket(ch *api.Channel, socketFilename string) (found bool, socket
 		}
 		if err != nil {
 			if debugMemif {
-	                	fmt.Println("Error retrieving memif socket:", err)
+				fmt.Println("Error retrieving memif socket:", err)
 			}
 		}
 
@@ -427,7 +416,6 @@ func findMemifSocket(ch *api.Channel, socketFilename string) (found bool, socket
 		}
 	}
 
-
 	//
 	// If input SocketFilename has not been created, then loop
 	// through the list of existing SocketIds and find an unused Id.
@@ -435,7 +423,7 @@ func findMemifSocket(ch *api.Channel, socketFilename string) (found bool, socket
 	if found == false {
 		socketId = 1
 
-		for ; done == false; {
+		for done == false {
 
 			done = true
 			for i := 0; i < count; i++ {
@@ -445,10 +433,9 @@ func findMemifSocket(ch *api.Channel, socketFilename string) (found bool, socket
 					break
 				}
 			}
-			
+
 		}
 	}
 
 	return
 }
-

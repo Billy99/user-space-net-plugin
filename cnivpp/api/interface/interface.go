@@ -21,20 +21,17 @@ package vppinterface
 
 import (
 	"fmt"
-	"net"
 
-	"github.com/Billy99/user-space-net-plugin/usrsptypes"
+	"github.com/containernetworking/cni/pkg/types/current"
 
 	"git.fd.io/govpp.git/api"
 	"git.fd.io/govpp.git/core/bin_api/interfaces"
 )
 
-
 //
 // Constants
 //
 const debugInterface = false
-
 
 //
 // API Functions
@@ -57,14 +54,13 @@ func InterfaceCompatibilityCheck(ch *api.Channel) (err error) {
 	return err
 }
 
-
 // Attempt to set an interface state. isUp (1 = up, 0 = down)
 func SetState(ch *api.Channel, swIfIndex uint32, isUp uint8) error {
 	// Populate the Add Structure
 	req := &interfaces.SwInterfaceSetFlags{
 		SwIfIndex: swIfIndex,
 		// 1 = up, 0 = down
-		AdminUpDown: isUp, 
+		AdminUpDown: isUp,
 	}
 
 	reply := &interfaces.SwInterfaceSetFlagsReply{}
@@ -81,31 +77,32 @@ func SetState(ch *api.Channel, swIfIndex uint32, isUp uint8) error {
 	return nil
 }
 
+func AddDelIpAddress(ch *api.Channel, swIfIndex uint32, isAdd uint8, ipResult *current.Result) error {
 
-func AddDelIpAddress(ch *api.Channel, swIfIndex uint32, isAdd uint8, ipData usrsptypes.IPDataType) error {
-
-	addr := net.ParseIP(ipData.Address)
-
-	
 	// Populate the Add Structure
 	req := &interfaces.SwInterfaceAddDelAddress{
 		SwIfIndex: swIfIndex,
-		IsAdd: isAdd, // 1 = add, 0 = delete
-		IsIpv6: ipData.IsIpv6,
-		DelAll: 0,
-		AddressLength: ipData.AddressLength,
-		//Address: []byte(ipData.Address),
+		IsAdd:     isAdd, // 1 = add, 0 = delete
+		DelAll:    0,
 	}
 
-	if ipData.IsIpv6 == 1 {
-		req.Address = []byte(addr.To16())
-	} else {
-		req.Address = []byte(addr.To4())
-	}
+	for _, ip := range ipResult.IPs {
+		if ip.Version == "4" {
+			req.IsIpv6 = 0
+			req.Address = []byte(ip.Address.IP.To4())
+			prefix, _ := ip.Address.Mask.Size()
+			req.AddressLength = byte(prefix)
+		} else if ip.Version == "6" {
+			req.IsIpv6 = 1
+			req.Address = []byte(ip.Address.IP.To16())
+			prefix, _ := ip.Address.Mask.Size()
+			req.AddressLength = byte(prefix)
+		}
 
-	if debugInterface {
-		fmt.Println("IP Address")
-		fmt.Println(req.Address)
+		// Only one address is currently supported.
+		if req.AddressLength != 0 {
+			break
+		}
 	}
 
 	reply := &interfaces.SwInterfaceAddDelAddressReply{}
@@ -121,4 +118,3 @@ func AddDelIpAddress(ch *api.Channel, swIfIndex uint32, isAdd uint8, ipData usrs
 
 	return nil
 }
-

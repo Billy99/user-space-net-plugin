@@ -23,25 +23,24 @@ import (
 	"fmt"
 	_ "net"
 	"os"
-	"time"
 	"runtime"
+	"time"
 
-	_ "github.com/sirupsen/logrus"
 	_ "git.fd.io/govpp.git/core"
+	_ "github.com/sirupsen/logrus"
 
+	"github.com/Billy99/user-space-net-plugin/cnivpp/api/bridge"
 	"github.com/Billy99/user-space-net-plugin/cnivpp/api/infra"
 	"github.com/Billy99/user-space-net-plugin/cnivpp/api/vhostuser"
-	"github.com/Billy99/user-space-net-plugin/cnivpp/api/bridge"
 )
 
 //
 // Constants
 //
 const (
-	dbgBridge = true
+	dbgBridge    = true
 	dbgVhostUser = true
 )
-
 
 //
 // Functions
@@ -53,7 +52,6 @@ func init() {
 	runtime.LockOSThread()
 }
 
-
 func main() {
 	var vppCh vppinfra.ConnectionData
 	var err error
@@ -64,23 +62,19 @@ func main() {
 	var vhostUserSocketFile string = "/var/run/vpp/123456/vhost3.sock"
 	var vhostUserMode vppvhostuser.VhostUserMode = vppvhostuser.ModeServer
 
-
 	// Set log level
 	//   Logrus has six logging levels: DebugLevel, InfoLevel, WarningLevel, ErrorLevel, FatalLevel and PanicLevel.
 	//core.SetLogger(&logrus.Logger{Level: logrus.InfoLevel})
 
-
 	fmt.Println("Starting Vhost-User Test client...")
 
-
 	// Create Channel to pass requests to VPP
-	vppCh,err = vppinfra.VppOpenCh()
+	vppCh, err = vppinfra.VppOpenCh()
 	if err != nil {
 		fmt.Println("Error:", err)
 		os.Exit(1)
 	}
 	defer vppinfra.VppCloseCh(vppCh)
-
 
 	// Compatibility Checks
 	err = vppbridge.BridgeCompatibilityCheck(vppCh.Ch)
@@ -91,7 +85,6 @@ func main() {
 	if err != nil {
 		os.Exit(1)
 	}
-
 
 	// Create Vhost-User Interface
 	swIfIndex, err = vppvhostuser.CreateVhostUserInterface(vppCh.Ch, vhostUserMode, vhostUserSocketFile)
@@ -104,8 +97,6 @@ func main() {
 			vppvhostuser.DumpVhostUser(vppCh.Ch)
 		}
 	}
-
-
 
 	// Add Vhost-User to Bridge. If Bridge does not exist, AddBridgeInterface()
 	// will create.
@@ -120,11 +111,9 @@ func main() {
 		}
 	}
 
-
 	fmt.Println("Sleeping for 30 seconds...")
 	time.Sleep(30 * time.Second)
 	fmt.Println("User Space VPP client wakeup.")
-
 
 	// Remove Vhost-User from Bridge. RemoveBridgeInterface() will delete Bridge if
 	// no more interfaces are associated with the Bridge.
@@ -140,11 +129,9 @@ func main() {
 		}
 	}
 
-
 	fmt.Println("Sleeping for 30 seconds...")
 	time.Sleep(30 * time.Second)
 	fmt.Println("User Space VPP client wakeup.")
-
 
 	fmt.Println("Delete Vhost-User interface.")
 	err = vppvhostuser.DeleteVhostUserInterface(vppCh.Ch, swIfIndex)
@@ -158,4 +145,3 @@ func main() {
 		}
 	}
 }
-

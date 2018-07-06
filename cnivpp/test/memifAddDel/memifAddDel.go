@@ -23,15 +23,15 @@ import (
 	"fmt"
 	_ "net"
 	"os"
-	"time"
 	"runtime"
+	"time"
 
-	_ "github.com/sirupsen/logrus"
 	_ "git.fd.io/govpp.git/core"
+	_ "github.com/sirupsen/logrus"
 
+	"github.com/Billy99/user-space-net-plugin/cnivpp/api/bridge"
 	"github.com/Billy99/user-space-net-plugin/cnivpp/api/infra"
 	"github.com/Billy99/user-space-net-plugin/cnivpp/api/memif"
-	"github.com/Billy99/user-space-net-plugin/cnivpp/api/bridge"
 )
 
 //
@@ -39,9 +39,8 @@ import (
 //
 const (
 	dbgBridge = true
-	dbgMemif = true
+	dbgMemif  = true
 )
-
 
 //
 // Functions
@@ -52,7 +51,6 @@ func init() {
 	// must ensure that the goroutine does not jump from OS thread to thread
 	runtime.LockOSThread()
 }
-
 
 func main() {
 	var vppCh vppinfra.ConnectionData
@@ -66,23 +64,19 @@ func main() {
 	var memifRole vppmemif.MemifRole = vppmemif.RoleMaster
 	var memifMode vppmemif.MemifMode = vppmemif.ModeEthernet
 
-
 	// Set log level
 	//   Logrus has six logging levels: DebugLevel, InfoLevel, WarningLevel, ErrorLevel, FatalLevel and PanicLevel.
 	//core.SetLogger(&logrus.Logger{Level: logrus.InfoLevel})
 
-
 	fmt.Println("Starting User Space client...")
 
-
 	// Create Channel to pass requests to VPP
-	vppCh,err = vppinfra.VppOpenCh()
+	vppCh, err = vppinfra.VppOpenCh()
 	if err != nil {
 		fmt.Println("Error:", err)
 		os.Exit(1)
 	}
 	defer vppinfra.VppCloseCh(vppCh)
-
 
 	// Compatibility Checks
 	err = vppbridge.BridgeCompatibilityCheck(vppCh.Ch)
@@ -94,9 +88,8 @@ func main() {
 		os.Exit(1)
 	}
 
-
 	// Create Memif Socket
-	memifSocketId,err = vppmemif.CreateMemifSocket(vppCh.Ch, memifSocketFile)
+	memifSocketId, err = vppmemif.CreateMemifSocket(vppCh.Ch, memifSocketFile)
 	if err != nil {
 		fmt.Println("Error:", err)
 		os.Exit(1)
@@ -106,7 +99,6 @@ func main() {
 			vppmemif.DumpMemifSocket(vppCh.Ch)
 		}
 	}
-
 
 	// Create MemIf Interface
 	swIfIndex, err = vppmemif.CreateMemifInterface(vppCh.Ch, memifSocketId, memifRole, memifMode)
@@ -119,8 +111,6 @@ func main() {
 			vppmemif.DumpMemif(vppCh.Ch)
 		}
 	}
-
-
 
 	// Add MemIf to Bridge. If Bridge does not exist, AddBridgeInterface()
 	// will create.
@@ -135,11 +125,9 @@ func main() {
 		}
 	}
 
-
 	fmt.Println("Sleeping for 30 seconds...")
 	time.Sleep(30 * time.Second)
 	fmt.Println("User Space VPP client wakeup.")
-
 
 	// Remove MemIf from Bridge. RemoveBridgeInterface() will delete Bridge if
 	// no more interfaces are associated with the Bridge.
@@ -155,11 +143,9 @@ func main() {
 		}
 	}
 
-
 	fmt.Println("Sleeping for 30 seconds...")
 	time.Sleep(30 * time.Second)
 	fmt.Println("User Space VPP client wakeup.")
-
 
 	fmt.Println("Delete memif interface.")
 	err = vppmemif.DeleteMemifInterface(vppCh.Ch, swIfIndex)
@@ -174,4 +160,3 @@ func main() {
 		}
 	}
 }
-

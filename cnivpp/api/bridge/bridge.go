@@ -26,17 +26,14 @@ import (
 	"git.fd.io/govpp.git/core/bin_api/l2"
 )
 
-
 //
 // Constants
 //
 const debugBridge = false
 
-
 //
 // API Functions
 //
-
 
 // Check whether generated API messages are compatible with the version
 // of VPP which the library is connected to.
@@ -58,11 +55,10 @@ func BridgeCompatibilityCheck(ch *api.Channel) error {
 	return err
 }
 
-
 // Attempt to create a Bridge Domain.
-func CreateBridge(ch *api.Channel, bridgeDomain uint32) (error) {
+func CreateBridge(ch *api.Channel, bridgeDomain uint32) error {
 
-	exists,_ := findBridge(ch, bridgeDomain)
+	exists, _ := findBridge(ch, bridgeDomain)
 	if exists {
 		if debugBridge {
 			fmt.Printf("Bridge Domain %d already exist, exit\n", bridgeDomain)
@@ -72,13 +68,13 @@ func CreateBridge(ch *api.Channel, bridgeDomain uint32) (error) {
 
 	// Populate the Request Structure
 	req := &l2.BridgeDomainAddDel{
-		BdID: bridgeDomain,
-		Flood: 1,
+		BdID:    bridgeDomain,
+		Flood:   1,
 		UuFlood: 1,
 		Forward: 1,
-		Learn: 1,
+		Learn:   1,
 		ArpTerm: 0,
-		MacAge: 0,
+		MacAge:  0,
 		//BdTag   []byte `struc:"[64]byte"`
 		IsAdd: 1,
 	}
@@ -97,19 +93,18 @@ func CreateBridge(ch *api.Channel, bridgeDomain uint32) (error) {
 	return err
 }
 
-
 // Attempt to delete a Bridge Domain.
 func DeleteBridge(ch *api.Channel, bridgeDomain uint32) error {
 
 	// Determine if bridge domain exists
-	exists,count := findBridge(ch, bridgeDomain)
+	exists, count := findBridge(ch, bridgeDomain)
 	if exists == false || count != 0 {
 		return nil
 	}
 
 	// Populate the Request Structure
 	req := &l2.BridgeDomainAddDel{
-		BdID: bridgeDomain,
+		BdID:  bridgeDomain,
 		IsAdd: 0,
 	}
 
@@ -127,9 +122,8 @@ func DeleteBridge(ch *api.Channel, bridgeDomain uint32) error {
 	return err
 }
 
-
 // Attempt to add an interface to a Bridge Domain.
-func AddBridgeInterface(ch *api.Channel, bridgeDomain uint32, swIfId uint32) (error) {
+func AddBridgeInterface(ch *api.Channel, bridgeDomain uint32, swIfId uint32) error {
 	var err error
 
 	// Determine if bridge domain exists, and if not, create it. CreateBridge()
@@ -141,11 +135,11 @@ func AddBridgeInterface(ch *api.Channel, bridgeDomain uint32, swIfId uint32) (er
 
 	// Populate the Request Structure
 	req := &l2.SwInterfaceSetL2Bridge{
-		BdID: bridgeDomain,
+		BdID:        bridgeDomain,
 		RxSwIfIndex: swIfId,
-		Shg: 0,
-		Bvi: 0,
-		Enable: 1,
+		Shg:         0,
+		Bvi:         0,
+		Enable:      1,
 	}
 
 	reply := &l2.SwInterfaceSetL2BridgeReply{}
@@ -162,17 +156,16 @@ func AddBridgeInterface(ch *api.Channel, bridgeDomain uint32, swIfId uint32) (er
 	return err
 }
 
-
 // Attempt to remove an interface from a Bridge Domain.
 func RemoveBridgeInterface(ch *api.Channel, bridgeDomain uint32, swIfId uint32) error {
 
 	// Populate the Request Structure
 	req := &l2.SwInterfaceSetL2Bridge{
-		BdID: bridgeDomain,
+		BdID:        bridgeDomain,
 		RxSwIfIndex: swIfId,
-		Shg: 0,
-		Bvi: 0,
-		Enable: 0,
+		Shg:         0,
+		Bvi:         0,
+		Enable:      0,
 	}
 
 	reply := &l2.SwInterfaceSetL2BridgeReply{}
@@ -193,16 +186,14 @@ func RemoveBridgeInterface(ch *api.Channel, bridgeDomain uint32, swIfId uint32) 
 		return err
 	}
 
-
 	return err
 }
 
-
 // Dump the input Bridge data to Stdout. There is not VPP API to dump
-// all the Bridges. 
+// all the Bridges.
 func DumpBridge(ch *api.Channel, bridgeDomain uint32) {
 
-        // Populate the Message Structure
+	// Populate the Message Structure
 	req := &l2.BridgeDomainDump{
 		BdID: bridgeDomain,
 	}
@@ -236,7 +227,6 @@ func DumpBridge(ch *api.Channel, bridgeDomain uint32) {
 	}
 }
 
-
 //
 // Local Functions
 //
@@ -244,11 +234,11 @@ func DumpBridge(ch *api.Channel, bridgeDomain uint32) {
 // Determine if the input Bridge exists.
 // Return: true - Exists  false - otherwise
 //         uint32 - Number of associated interfaces
-func findBridge(ch *api.Channel, bridgeDomain uint32) (bool,uint32) {
+func findBridge(ch *api.Channel, bridgeDomain uint32) (bool, uint32) {
 	var rval bool = false
 	var count uint32
 
-        // Populate the Message Structure
+	// Populate the Message Structure
 	req := &l2.BridgeDomainDump{
 		BdID: bridgeDomain,
 	}
@@ -277,7 +267,5 @@ func findBridge(ch *api.Channel, bridgeDomain uint32) (bool,uint32) {
 		rval = true
 	}
 
-	return rval,count
+	return rval, count
 }
-
-

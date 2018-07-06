@@ -16,33 +16,41 @@ package usrsptypes
 
 import (
 	"github.com/containernetworking/cni/pkg/types"
+	"github.com/containernetworking/cni/pkg/types/current"
 )
 
 //
 // Exported Types
 //
+type UsrSpCni interface {
+	AddOnHost(conf *NetConf, containerID string, ipResult *current.Result) error
+	AddOnContainer(conf *NetConf, containerID string, ipResult *current.Result) error
+	DelFromHost(conf *NetConf, containerID string) error
+	DelFromContainer(conf *NetConf, containerID string) error
+}
+
 type MemifConf struct {
-	Role       string `json:"role"`       // Role of memif: master|slave
-	Mode       string `json:"mode"`       // Mode of memif: ip|ethernet|inject-punt
+	Role string `json:"role"` // Role of memif: master|slave
+	Mode string `json:"mode"` // Mode of memif: ip|ethernet|inject-punt
 }
 
 type VhostConf struct {
-	Mode       string `json:"mode"`       // vhost-user mode: client|server
+	Mode string `json:"mode"` // vhost-user mode: client|server
 }
 
 type BridgeConf struct {
-	BridgeId   int `json:"bridgeId"`         // Bridge Id 
-	VlanId     int `json:"vlanId,onitempty"` // Optional VLAN Id
+	BridgeId int `json:"bridgeId"`         // Bridge Id
+	VlanId   int `json:"vlanId,onitempty"` // Optional VLAN Id
 }
 
 type UserSpaceConf struct {
 	// The Container Instance will default to the Host Instance value if a given attribute
 	// is not provided. However, they are not required to be the same and a Container
 	// attribute can be provided to override. All values are listed as 'omitempty' to
-	// allow the Container struct to be empty where desired. 
-	Engine     string `json:"engine,omitempty"`    // CNI Implementation {vpp|ovs|ovs-dpdk|linux}
-	IfType     string `json:"iftype,omitempty"`    // Type of interface {memif|vhostuser|veth|tap}
-	NetType    string `json:"netType,omitempty"`   // Interface network type {none|bridge|interface}
+	// allow the Container struct to be empty where desired.
+	Engine     string     `json:"engine,omitempty"`  // CNI Implementation {vpp|ovs|ovs-dpdk|linux}
+	IfType     string     `json:"iftype,omitempty"`  // Type of interface {memif|vhostuser|veth|tap}
+	NetType    string     `json:"netType,omitempty"` // Interface network type {none|bridge|interface}
 	MemifConf  MemifConf  `json:"memif,omitempty"`
 	VhostConf  VhostConf  `json:"vhost,omitempty"`
 	BridgeConf BridgeConf `json:"bridge,omitempty"`
@@ -50,15 +58,8 @@ type UserSpaceConf struct {
 
 type NetConf struct {
 	types.NetConf
-	Name           string        `json:"name"`
-	If0name        string        `json:"if0name,omitempty"`    // Interface name
-	HostConf       UserSpaceConf `json:"host,omitempty"`
-	ContainerConf  UserSpaceConf `json:"container,omitempty"`
-}
-
-
-type IPDataType struct {
-	IsIpv6         uint8  `json:"isIpv6"`
-	AddressLength  uint8  `json:"addrLen"`
-	Address        string `json:"ipAddr"`
+	Name          string        `json:"name"`
+	If0name       string        `json:"if0name,omitempty"` // Interface name
+	HostConf      UserSpaceConf `json:"host,omitempty"`
+	ContainerConf UserSpaceConf `json:"container,omitempty"`
 }

@@ -25,26 +25,27 @@
 
 package cnivpp
 
-
 import (
 	"fmt"
 	"os"
 	"path/filepath"
 
-	"github.com/Billy99/user-space-net-plugin/usrsptypes"
+	"github.com/containernetworking/cni/pkg/types/current"
+
 	"github.com/Billy99/user-space-net-plugin/cnivpp/api/bridge"
 	"github.com/Billy99/user-space-net-plugin/cnivpp/api/infra"
 	"github.com/Billy99/user-space-net-plugin/cnivpp/api/interface"
 	"github.com/Billy99/user-space-net-plugin/cnivpp/api/memif"
 	"github.com/Billy99/user-space-net-plugin/cnivpp/api/vhostuser"
 	"github.com/Billy99/user-space-net-plugin/cnivpp/vppdb"
+	"github.com/Billy99/user-space-net-plugin/usrsptypes"
 )
 
 //
 // Constants
 //
 const (
-	dbgBridge = false
+	dbgBridge    = false
 	dbgInterface = false
 )
 
@@ -53,32 +54,29 @@ const defaultVPPSocketDir = "/var/run/vpp/cni/shared/"
 //
 // Types
 //
-
-
+type CniVpp struct {
+}
 
 //
 // API Functions
 //
-func CniVppAddOnHost(conf *usrsptypes.NetConf, ipData usrsptypes.IPDataType, containerID string) error {
+func (cniVpp CniVpp) AddOnHost(conf *usrsptypes.NetConf, containerID string, ipResult *current.Result) error {
 	var vppCh vppinfra.ConnectionData
 	var err error
 	var data vppdb.VppSavedData
 
-
 	// Create Channel to pass requests to VPP
-	vppCh,err = vppinfra.VppOpenCh()
+	vppCh, err = vppinfra.VppOpenCh()
 	if err != nil {
 		return err
 	}
 	defer vppinfra.VppCloseCh(vppCh)
-
 
 	// Make sure version of API structs used by CNI are same as used by local VPP Instance.
 	err = compatibilityChecks(vppCh)
 	if err != nil {
 		return err
 	}
-
 
 	//
 	// Create Local Interface
@@ -95,9 +93,8 @@ func CniVppAddOnHost(conf *usrsptypes.NetConf, ipData usrsptypes.IPDataType, con
 		return err
 	}
 
-
 	//
-        // Set interface to up (1)
+	// Set interface to up (1)
 	//
 	err = vppinterface.SetState(vppCh.Ch, data.SwIfIndex, 1)
 	if err != nil {
@@ -107,10 +104,11 @@ func CniVppAddOnHost(conf *usrsptypes.NetConf, ipData usrsptypes.IPDataType, con
 		return err
 	}
 
+	//
+	// Add Interface to Local Network
+	//
 
-	//
 	// Add L2 Network if supplied
-	//
 	if conf.HostConf.NetType == "bridge" {
 
 		var bridgeDomain uint32 = uint32(conf.HostConf.BridgeConf.BridgeId)
@@ -129,26 +127,18 @@ func CniVppAddOnHost(conf *usrsptypes.NetConf, ipData usrsptypes.IPDataType, con
 				vppbridge.DumpBridge(vppCh.Ch, bridgeDomain)
 			}
 		}
-	}
-
-
-	//
-	// Add L3 Network if supplied
-	//
-	if ipData.Address != "" {
-		err = vppinterface.AddDelIpAddress(vppCh.Ch, data.SwIfIndex, 1, ipData)
-		if err != nil {
-			if dbgInterface {
-				fmt.Println("Error:", err)
-			}
-			return err
-		} else {
-			if dbgInterface {
-				fmt.Printf("IP %s added to INTERFACE %d\n", data.SwIfIndex, ipData.Address)
+		// Add L3 Network if supplied
+	} else if conf.HostConf.NetType == "interface" {
+		if len(ipResult.IPs) != 0 {
+			err = vppinterface.AddDelIpAddress(vppCh.Ch, data.SwIfIndex, 1, ipResult)
+			if err != nil {
+				if dbgInterface {
+					fmt.Println("Error:", err)
+				}
+				return err
 			}
 		}
 	}
-
 
 	//
 	// Save Create Data for Delete
@@ -162,24 +152,21 @@ func CniVppAddOnHost(conf *usrsptypes.NetConf, ipData usrsptypes.IPDataType, con
 	return err
 }
 
-func CniVppAddOnContainer(conf *usrsptypes.NetConf, ipData usrsptypes.IPDataType, containerID string) error {
-	return vppdb.SaveRemoteConfig(conf, ipData, containerID)
+func (cniVpp CniVpp) AddOnContainer(conf *usrsptypes.NetConf, containerID string, ipResult *current.Result) error {
+	return vppdb.SaveRemoteConfig(conf, ipResult, containerID)
 }
 
-
-func CniVppDelFromHost(conf *usrsptypes.NetConf, containerID string) error {
+func (cniVpp CniVpp) DelFromHost(conf *usrsptypes.NetConf, containerID string) error {
 	var vppCh vppinfra.ConnectionData
 	var data vppdb.VppSavedData
 	var err error
 
-
 	// Create Channel to pass requests to VPP
-	vppCh,err = vppinfra.VppOpenCh()
+	vppCh, err = vppinfra.VppOpenCh()
 	if err != nil {
 		return err
 	}
 	defer vppinfra.VppCloseCh(vppCh)
-
 
 	// Retrieved squirreled away data needed for processing delete
 	err = vppdb.LoadVppConfig(conf, containerID, &data)
@@ -187,7 +174,6 @@ func CniVppDelFromHost(conf *usrsptypes.NetConf, containerID string) error {
 	if err != nil {
 		return err
 	}
-
 
 	//
 	// Remove L2 Network if supplied
@@ -200,7 +186,6 @@ func CniVppDelFromHost(conf *usrsptypes.NetConf, containerID string) error {
 		if dbgBridge {
 			fmt.Printf("INTERFACE %d retrieved from CONF - attempt to DELETE Bridge %d\n", data.SwIfIndex, bridgeDomain)
 		}
-
 
 		// Remove MemIf from Bridge. RemoveBridgeInterface() will delete Bridge if
 		// no more interfaces are associated with the Bridge.
@@ -219,7 +204,6 @@ func CniVppDelFromHost(conf *usrsptypes.NetConf, containerID string) error {
 		}
 	}
 
-
 	//
 	// Delete Local Interface
 	//
@@ -234,24 +218,25 @@ func CniVppDelFromHost(conf *usrsptypes.NetConf, containerID string) error {
 	return err
 }
 
-func CniVppDelFromContainer(conf *usrsptypes.NetConf, containerID string) error {
-	vppdb.CleanupRemoteConfig(conf,containerID)
+func (cniVpp CniVpp) DelFromContainer(conf *usrsptypes.NetConf, containerID string) error {
+	vppdb.CleanupRemoteConfig(conf, containerID)
 	return nil
 }
 
-
 func CniContainerConfig() (bool, error) {
 
-	found, conf, ipData, containerId, err := vppdb.FindRemoteConfig()
+	vpp := CniVpp{}
+
+	found, conf, ipResult, containerId, err := vppdb.FindRemoteConfig()
 
 	if err == nil {
 		if found {
 			if dbgInterface {
-				fmt.Println("ipData:")
-				fmt.Println(ipData)
+				fmt.Println("ipResult:")
+				fmt.Println(ipResult)
 			}
 
-			err = CniVppAddOnHost(&conf, ipData, containerId)
+			err = vpp.AddOnHost(&conf, containerId, &ipResult)
 
 			if err != nil {
 				if dbgInterface {
@@ -263,7 +248,6 @@ func CniContainerConfig() (bool, error) {
 
 	return found, err
 }
-
 
 //
 // Local Functions
@@ -329,7 +313,6 @@ func addLocalDeviceMemif(vppCh vppinfra.ConnectionData, conf *usrsptypes.NetConf
 		return fmt.Errorf("ERROR: Invalid MEMIF Mode:" + conf.HostConf.MemifConf.Mode)
 	}
 
-
 	// Create Memif Socket
 	data.MemifSocketId, err = vppmemif.CreateMemifSocket(vppCh.Ch, memifSocketFile)
 	if err != nil {
@@ -343,7 +326,6 @@ func addLocalDeviceMemif(vppCh vppinfra.ConnectionData, conf *usrsptypes.NetConf
 			vppmemif.DumpMemifSocket(vppCh.Ch)
 		}
 	}
-
 
 	// Create MemIf Interface
 	data.SwIfIndex, err = vppmemif.CreateMemifInterface(vppCh.Ch, data.MemifSocketId, memifRole, memifMode)
@@ -391,4 +373,3 @@ func delLocalDeviceMemif(vppCh vppinfra.ConnectionData, conf *usrsptypes.NetConf
 
 	return
 }
-

@@ -29,7 +29,6 @@ import (
 	"git.fd.io/govpp.git/core"
 )
 
-
 //
 // Constants
 //
@@ -40,11 +39,10 @@ const debugInfra = false
 //
 type ConnectionData struct {
 	conn           *core.Connection
-	disconnectFlag  bool
+	disconnectFlag bool
 	Ch             *api.Channel
-	closeFlag       bool
+	closeFlag      bool
 }
-
 
 //
 // API Functions
@@ -53,9 +51,8 @@ type ConnectionData struct {
 // Open a Connection and Channel to VPP to allow communication to VPP.
 func VppOpenCh() (ConnectionData, error) {
 
-	var vppCh  ConnectionData
-	var err    error
-
+	var vppCh ConnectionData
+	var err error
 
 	// Set log level
 	//   Logrus has six logging levels: DebugLevel, InfoLevel, WarningLevel, ErrorLevel, FatalLevel and PanicLevel.
@@ -67,10 +64,9 @@ func VppOpenCh() (ConnectionData, error) {
 		if debugInfra {
 			fmt.Println("Error:", err)
 		}
-		return vppCh,err
+		return vppCh, err
 	}
 	vppCh.disconnectFlag = true
-
 
 	// Create an API channel to VPP
 	vppCh.Ch, err = vppCh.conn.NewAPIChannel()
@@ -79,13 +75,12 @@ func VppOpenCh() (ConnectionData, error) {
 		if debugInfra {
 			fmt.Println("Error:", err)
 		}
-		return vppCh,err
+		return vppCh, err
 	}
 	vppCh.closeFlag = true
 
-	return vppCh,err
+	return vppCh, err
 }
-
 
 // Close the Connection and Channel to VPP.
 func VppCloseCh(vppCh ConnectionData) {
@@ -100,4 +95,3 @@ func VppCloseCh(vppCh ConnectionData) {
 		vppCh.disconnectFlag = false
 	}
 }
-

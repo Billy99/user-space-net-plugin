@@ -27,12 +27,12 @@ import (
 	"github.com/containernetworking/plugins/pkg/ipam"
 	"github.com/containernetworking/plugins/pkg/ns"
 
-	"github.com/Billy99/user-space-net-plugin/usrsptypes"
+	"github.com/Billy99/user-space-net-plugin/cniovs/cniovs"
 	"github.com/Billy99/user-space-net-plugin/cnivpp/cnivpp"
+	"github.com/Billy99/user-space-net-plugin/usrsptypes"
 
 	"github.com/vishvananda/netlink"
 )
-
 
 func init() {
 	// this ensures that main runs only on main thread (thread group leader).
@@ -45,7 +45,7 @@ func init() {
 // Local functions
 //
 
-// loadNetConf() - Unmarshall the inputdata into the NetConf Structure 
+// loadNetConf() - Unmarshall the inputdata into the NetConf Structure
 func loadNetConf(bytes []byte) (*usrsptypes.NetConf, error) {
 	n := &usrsptypes.NetConf{}
 	if err := json.Unmarshal(bytes, n); err != nil {
@@ -55,14 +55,13 @@ func loadNetConf(bytes []byte) (*usrsptypes.NetConf, error) {
 	return n, nil
 }
 
-
 func cmdAdd(args *skel.CmdArgs) error {
 	var result *current.Result
 	var netConf *usrsptypes.NetConf
 	var containerEngine string
-	var ipData usrsptypes.IPDataType
-	var prefix int
 
+	vpp := cnivpp.CniVpp{}
+	ovs := cniovs.CniOvs{}
 
 	// Convert the input bytestream into local NetConf structure
 	netConf, err := loadNetConf(args.StdinData)
@@ -70,23 +69,21 @@ func cmdAdd(args *skel.CmdArgs) error {
 		return err
 	}
 
-
 	//
 	// HOST:
 	//
 
 	// Add the requested interface and network
 	if netConf.HostConf.Engine == "vpp" {
-		err = cnivpp.CniVppAddOnHost(netConf, ipData, args.ContainerID)
-		if err != nil {
-			return err
-		}
+		err = vpp.AddOnHost(netConf, args.ContainerID, result)
 	} else if netConf.HostConf.Engine == "ovs-dpdk" {
-		return fmt.Errorf("GOOD: Found Host Engine:" + netConf.HostConf.Engine + " - NOT SUPPORTED")
+		err = ovs.AddOnHost(netConf, args.ContainerID, result)
 	} else {
 		return fmt.Errorf("ERROR: Unknown Host Engine:" + netConf.HostConf.Engine)
 	}
-
+	if err != nil {
+		return err
+	}
 
 	//
 	// CONTAINER:
@@ -94,20 +91,6 @@ func cmdAdd(args *skel.CmdArgs) error {
 
 	// Get IPAM data for Container Interface, if provided.
 	if netConf.IPAM.Type != "" {
-
-		//type IPConfig struct {
-		//	IP      net.IPNet
-		//	Gateway net.IP
-		//	Routes  []types.Route
-		//}
-
-		//type Result struct {
-		//	CNIVersion string    `json:"cniVersion,omitempty"`
-		//	IP4        *IPConfig `json:"ip4,omitempty"`
-		//	IP6        *IPConfig `json:"ip6,omitempty"`
-		//	DNS        types.DNS `json:"dns,omitempty"`
-		//}
-
 
 		// run the IPAM plugin and get back the config to apply
 		ipamResult, err := ipam.ExecAdd(netConf.IPAM.Type, args.StdinData)
@@ -118,37 +101,13 @@ func cmdAdd(args *skel.CmdArgs) error {
 		// Convert whatever the IPAM result was into the current Result type
 		result, err = current.NewResultFromResult(ipamResult)
 		if err != nil {
-			// TBD: CLEAN-UP 
+			// TBD: CLEAN-UP
 			return err
 		}
 
-		if len(result.IPs) == 0  {
-			// TBD: CLEAN-UP 
+		if len(result.IPs) == 0 {
+			// TBD: CLEAN-UP
 			return fmt.Errorf("ERROR: Unable to get IP Address")
-		}
-
-		// Map result to local usrtype structure.
-		// TBD: Convert cnivpp to use new structure (result)
-		//      This is here from when cnivpp was in its own repo and
-		//      vendor issue with using different versions (different
-		//      vendor directories) of IPAM.
-		for _, ip := range result.IPs {
-			if ip.Version == "4" {
-				ipData.IsIpv6  = 0
-				ipData.Address = ip.Address.IP.String()
-				prefix, _ = ip.Address.Mask.Size()
-				ipData.AddressLength = byte(prefix)
-			} else if ip.Version == "6" {
-				ipData.IsIpv6  = 1
-				ipData.Address = ip.Address.IP.String()
-				prefix, _ = ip.Address.Mask.Size()
-				ipData.AddressLength = byte(prefix)
-			}
-
-			// Only one address is currently supported.
-			if ipData.Address != "" {
-				break
-			}
 		}
 
 		// Clear out the Gateway if set by IPAM, not being used.
@@ -158,7 +117,6 @@ func cmdAdd(args *skel.CmdArgs) error {
 
 	}
 
-
 	// Determine the Engine that will process the request. Default to host
 	// if not provided.
 	if netConf.ContainerConf.Engine != "" {
@@ -166,25 +124,28 @@ func cmdAdd(args *skel.CmdArgs) error {
 	} else {
 		containerEngine = netConf.HostConf.Engine
 	}
- 
+
 	// Add the requested interface and network
 	if containerEngine == "vpp" {
-		err = cnivpp.CniVppAddOnContainer(netConf, ipData, args.ContainerID)
-		if err != nil {
-			return err
-		}
+		err = vpp.AddOnContainer(netConf, args.ContainerID, result)
 	} else if containerEngine == "ovs-dpdk" {
-		return fmt.Errorf("GOOD: Found Container Engine:" + containerEngine + " - NOT SUPPORTED")
+		err = ovs.AddOnContainer(netConf, args.ContainerID, result)
 	} else {
 		return fmt.Errorf("ERROR: Unknown Container Engine:" + containerEngine)
 	}
+	if err != nil {
+		return err
+	}
 
-	return  cnitypes.PrintResult(result, netConf.CNIVersion)
+	return cnitypes.PrintResult(result, netConf.CNIVersion)
 }
 
 func cmdDel(args *skel.CmdArgs) error {
 	var netConf *usrsptypes.NetConf
 	var containerEngine string
+
+	vpp := cnivpp.CniVpp{}
+	ovs := cniovs.CniOvs{}
 
 	// Convert the input bytestream into local NetConf structure
 	netConf, err := loadNetConf(args.StdinData)
@@ -192,23 +153,21 @@ func cmdDel(args *skel.CmdArgs) error {
 		return err
 	}
 
-
 	//
 	// HOST:
 	//
 
 	// Delete the requested interface
 	if netConf.HostConf.Engine == "vpp" {
-		err = cnivpp.CniVppDelFromHost(netConf, args.ContainerID)
-		if err != nil {
-			return err
-		}
+		err = vpp.DelFromHost(netConf, args.ContainerID)
 	} else if netConf.HostConf.Engine == "ovs-dpdk" {
-		return fmt.Errorf("GOOD: Found Host Engine:" + netConf.HostConf.Engine + " - NOT SUPPORTED")
+		err = ovs.DelFromHost(netConf, args.ContainerID)
 	} else {
 		return fmt.Errorf("ERROR: Unknown Host Engine:" + netConf.HostConf.Engine)
 	}
-
+	if err != nil {
+		return err
+	}
 
 	//
 	// CONTAINER
@@ -224,16 +183,15 @@ func cmdDel(args *skel.CmdArgs) error {
 
 	// Delete the requested interface
 	if containerEngine == "vpp" {
-		err = cnivpp.CniVppDelFromContainer(netConf, args.ContainerID)
-		if err != nil {
-			return err
-		}
+		err = vpp.DelFromContainer(netConf, args.ContainerID)
 	} else if containerEngine == "ovs-dpdk" {
-		return fmt.Errorf("GOOD: Found Container Engine:" + containerEngine + " - NOT SUPPORTED")
+		err = ovs.DelFromContainer(netConf, args.ContainerID)
 	} else {
 		return fmt.Errorf("ERROR: Unknown Container Engine:" + containerEngine)
 	}
-
+	if err != nil {
+		return err
+	}
 
 	//
 	// Cleanup IPAM data, if provided.

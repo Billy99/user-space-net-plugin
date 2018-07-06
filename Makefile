@@ -117,6 +117,10 @@ endif
 
 
 extras:
+	@cd vendor/git.fd.io/govpp.git/cmd/binapi-generator && go build -v
+	@./vendor/git.fd.io/govpp.git/cmd/binapi-generator/binapi-generator \
+		--input-dir=/usr/share/vpp/api/ \
+		--output-dir=vendor/git.fd.io/govpp.git/core/bin_api/
 	@cd cnivpp/vpp-app && go build -v
 
 clean:

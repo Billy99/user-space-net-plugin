@@ -26,7 +26,6 @@ import (
 	"git.fd.io/govpp.git/core/bin_api/vhost_user"
 )
 
-
 //
 // Constants
 //
@@ -34,40 +33,38 @@ import (
 const debugVhost = false
 
 type VhostUserMode uint8
+
 const (
-	ModeClient    VhostUserMode = 0
-	ModeServer    VhostUserMode = 1
+	ModeClient VhostUserMode = 0
+	ModeServer VhostUserMode = 1
 )
 
 // Dump Strings
-var modeStr = [...]string{"client","server"}
-
+var modeStr = [...]string{"client", "server"}
 
 //
 // API Functions
 //
 
-
 // Check whether generated API messages are compatible with the version
 // of VPP which the library is connected to.
 func VhostUserCompatibilityCheck(ch *api.Channel) (err error) {
-        err = ch.CheckMessageCompatibility(
-                &vhost_user.CreateVhostUserIf{},
+	err = ch.CheckMessageCompatibility(
+		&vhost_user.CreateVhostUserIf{},
 		&vhost_user.CreateVhostUserIfReply{},
 		&vhost_user.DeleteVhostUserIf{},
 		&vhost_user.DeleteVhostUserIfReply{},
 		&vhost_user.SwInterfaceVhostUserDump{},
 		&vhost_user.SwInterfaceVhostUserDetails{},
-        )
-        if err != nil {
+	)
+	if err != nil {
 		if debugVhost {
-	                fmt.Println("VPP vhostUser failed compatibility")
+			fmt.Println("VPP vhostUser failed compatibility")
 		}
-        }
+	}
 
-        return err
+	return err
 }
-
 
 // Attempt to create a Vhost-User Interface.
 // Input:
@@ -78,11 +75,11 @@ func CreateVhostUserInterface(ch *api.Channel, mode VhostUserMode, socketFile st
 
 	// Populate the Add Structure
 	req := &vhost_user.CreateVhostUserIf{
-		IsServer: uint8(mode),
-		SockFilename: []byte(socketFile),
-		Renumber: 0,
+		IsServer:          uint8(mode),
+		SockFilename:      []byte(socketFile),
+		Renumber:          0,
 		CustomDevInstance: 0,
-		UseCustomMac: 0,
+		UseCustomMac:      0,
 		//MacAddress: "",
 		//Tag: "",
 	}
@@ -102,7 +99,6 @@ func CreateVhostUserInterface(ch *api.Channel, mode VhostUserMode, socketFile st
 
 	return
 }
-
 
 // Attempt to delete a Vhost-User interface.
 func DeleteVhostUserInterface(ch *api.Channel, swIfIndex uint32) (err error) {
@@ -126,13 +122,12 @@ func DeleteVhostUserInterface(ch *api.Channel, swIfIndex uint32) (err error) {
 	return err
 }
 
-
 // Dump the set of existing Vhost-User interfaces to stdout.
 func DumpVhostUser(ch *api.Channel) {
 	var count int
 
-        // Populate the Message Structure
-        req := &vhost_user.SwInterfaceVhostUserDump{}
+	// Populate the Message Structure
+	req := &vhost_user.SwInterfaceVhostUserDump{}
 	reqCtx := ch.SendMultiRequest(req)
 
 	fmt.Printf("Vhost-User Interface List:\n")
@@ -143,7 +138,7 @@ func DumpVhostUser(ch *api.Channel) {
 			break // break out of the loop
 		}
 		if err != nil {
-                	fmt.Println("Error dumping vhostUser interface:", err)
+			fmt.Println("Error dumping vhostUser interface:", err)
 		}
 		//fmt.Printf("%+v\n", reply)
 
@@ -162,4 +157,3 @@ func DumpVhostUser(ch *api.Channel) {
 
 	fmt.Printf("  Interface Count: %d\n", count)
 }
-

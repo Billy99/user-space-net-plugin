@@ -16,7 +16,7 @@ this library to add that data to a Database the container can consume.
 The VPP CNI opens a GO Channel to the the local VPP instance based on the VPP
 API files. When VPP is installed, it copies it's json API files to
 **/usr/share/vpp/api/**. VPP CNI uses these files to compile against and generate
-the properly version messages to the local VPP Instance. So to build the VPP
+the properly versioned messages to the local VPP Instance. So to build the VPP
 CNI, VPP must be installed (or the proper json files must be in
 **/usr/share/vpp/api/**).
 
@@ -33,10 +33,13 @@ them. This is primarily an issue if you are running in a VM that does not
 already have hugepage backing, especially when you reboot the VM. If you
 would like to change the number of hugepages VPP uses, after installing VPP,
 edit **/etc/sysctl.d/80-vpp.conf**. However, once VPP has been installed, the
-default value has been applied. To reduce the number of hugepages, use:
+default value has been applied. As an example, to reduce the number of
+hugepages to 512, use:
+```
    vm.nr_hugepages=512  
    vm.max_map_count=2048  
-   kernel.shmmax=1073741824  
+   kernel.shmmax=1073741824
+```  
 * ***SELinux:*** VPP works with SELinux enabled, but when running with
 containers, work still needs to be done. Set SELinux to permissive.
 
@@ -81,11 +84,10 @@ The docker image ***vpp-centos-userspace-cni*** runs a VPP instance and the
 vpp-app at startup. 
 
 ## cnivpp/vppdb
-vppdb is use to store data in a DB. For the local VPP instance, the vppdb is
+**vppdb** is use to store data in a DB. For the local VPP instance, the vppdb is
 used to store the swIndex generated when the interface is created. It is used
 later to delete the interface. The vppdb is also used to pass configuration
 data to the container so the container can consume the interface.
-
 
 The initial implementation of the DB is just json data written to a file.
 This can be expanded at a later date to write to something like an etcd DB.
@@ -93,16 +95,16 @@ This can be expanded at a later date to write to something like an etcd DB.
 
 The following filenames and directory structure is used to store the data:
 * ***Host***:
-  * ***/var/run/vpp/cni/data/***:
+  * *** /var/run/vpp/cni/data/ ***:
     * ***local-<ContainerId:12>-<ifname>.json***: Used to store local data
 needed to delete and cleanup.
 
-  * ***/var/run/vpp/cni/shared/***: Not a database directory, but this directory
+  * *** /var/run/vpp/cni/shared/ ***: Not a database directory, but this directory
 is used for interface socket files, for example: ***memif-<ContainerId:12>-<ifname>.sock***
 This directory is mapped into that container as the same directory in the container.
 
-  * ***/var/run/vpp/cni/<ContainerId>/***: This directory is mapped into that container
-as ***/var/run/vpp/cni/data/***, so appears to the container as its local data
+  * *** /var/run/vpp/cni/<ContainerId>/ ***: This directory is mapped into that container
+as *** /var/run/vpp/cni/data/ ***, so appears to the container as its local data
 directory. This is where the container writes its
 ***local-<ContainerId:12>-<ifname>.json*** file described above.
     * ***remote-<ContainerId:12>-<ifname>.json***: This file contains the configuration
@@ -118,8 +120,8 @@ were processed locally. Once this data is read in the container, the vpp-app del
 the file.
 
 * ***Container***:
-  * ***/var/run/vpp/cni/data/***: Mapped from ***/var/run/vpp/cni/<ContainerId>/***
+  * *** /var/run/vpp/cni/data/ ***: Mapped from *** /var/run/vpp/cni/<ContainerId>/ ***
 on the host.
-  * ***/var/run/vpp/cni/shared/***: Mapped from ***/var/run/vpp/cni/shared/*** on
+  * *** /var/run/vpp/cni/shared/ ***: Mapped from *** /var/run/vpp/cni/shared/ *** on
 the host.
 

@@ -25,7 +25,7 @@ are not my strong suit.
 
 
 # Build
-To get and build the **userspace** plugin:
+To get and build the **UserSpace CNI** plugin:
 ```
    cd $GOPATH/src/
    go get github.com/Billy99/user-space-net-plugin
@@ -42,6 +42,46 @@ To perform a make clean:
 ```
    make clean
 ```
+
+## Building cnivpp with OVS
+The **UserSpace CNI** plugin builds the cnivpp library from the cnivpp
+sub-folder. In order to run with the cnivpp library, VPP must be installed
+on the system. If VPP should be installed but is not installed, see the
+**Install VPP** section of the cnivpp/README.md for instructions.
+
+If the desire is to run the cniovs library with OVS (i.e. - don't want
+VPP installed), several files from a typical VPP install need to be on
+the system to build. To install just these files and NOT VPP, run:
+```
+   cd $GOPATH/src/
+   go get github.com/Billy99/user-space-net-plugin
+   cd github.com/Billy99/user-space-net-plugin
+   make install
+```
+This will install only the 5 or 6 files needed to build the cnivpp library.
+To remove these files, run:
+```
+   make clean
+```
+*make install* requires several packages to execute, primarily *wget*,
+*cpio* and *rpm2cpio*. If these packages are not installed on your system,
+the following can be run to install the required packages:
+```
+   make install-dep
+```
+**NOTE:** *make install* has only been made to work for CentOS based systems.
+Other platforms will be made to work long term. If there is an immediate need
+for other platforms, please open an issue to expedite the feature
+(https://github.com/Billy99/user-space-net-plugin/issues). 
+
+## Update dependencies (vendor/)
+This project is currently using **glide**. To refresh or update the set
+dependancies for this project, run:
+```
+   glide update --strip-vendor
+```
+This project currently checks in the *glide.lock* and files under the
+*vendor* directory.
 
 
 # Test
