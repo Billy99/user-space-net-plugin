@@ -47,7 +47,7 @@ import (
 // Constants
 //
 const defaultCNIDir = "/var/lib/cni/vhostuser"
-const defaultOvsScript = "/home/bmcfall/go/src/github.com/Billy99/user-space-net-plugin/cniovs/scripts/ovs-config.py"
+const defaultOvsScript = "/usr/share/openvswitch/scripts/ovs-config.py"
 
 //
 // Types

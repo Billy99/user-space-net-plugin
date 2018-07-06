@@ -47,7 +47,7 @@ To perform a make clean:
 The **UserSpace CNI** plugin builds the cnivpp library from the cnivpp
 sub-folder. In order to run with the cnivpp library, VPP must be installed
 on the system. If VPP should be installed but is not installed, see the
-**Install VPP** section of the cnivpp/README.md for instructions.
+**Install VPP** section of the *cnivpp/README.md* for instructions.
 
 If the desire is to run the cniovs library with OVS (i.e. - don't want
 VPP installed), several files from a typical VPP install need to be on
@@ -112,7 +112,8 @@ Example of how to setup a configuration for a VPP memif interface between the
 host and container:
 ```
 sudo vi /etc/cni/net.d/90-userspace.conf 
-
+{
+	"cniVersion": "0.3.1",
         "type": "userspace",
         "name": "memif-network",
         "if0name": "net0",
@@ -161,9 +162,9 @@ To run script:
 are passed to the container through a subdirectory of this base directory..
 * *-v /var/run/vpp/cni/$contid:/var/run/vpp/cni/data:rw*
   * Current implementation is to write the remote configuration into a file and share the directory
-with the conatiner, which is the volume mapping. Directory is currently hard coded.
+with the container, which is the volume mapping. Directory is currently hard coded.
 * *--device=/dev/hugepages:/dev/hugepages*
-  * VPP requires hugepages, so need to map hugepoages into conatiner.
+  * VPP requires hugepages, so need to map hugepoages into container.
 
 In the container, you should see the vpp-app ouput the message sequence of
 its communication with local VPP (VPP in the container) and some database

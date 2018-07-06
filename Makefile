@@ -32,6 +32,16 @@ else
 	VPPLCLINSTALLED=0
 endif
 
+#
+# OVS Variables
+#
+ifeq ($(shell test -e /usr/share/openvswitch/scripts/ovs-config.py && echo -n yes),yes)
+        OVS_PY_INSTALLED=1
+else
+        OVS_PY_INSTALLED=0
+endif
+
+
 # Default to build
 default: build
 all: build
@@ -113,6 +123,11 @@ ifeq ($(PKG),rpm)
 else ifeq ($(PKG),deb)
 	@echo Install of VPP files on Debian systems currently not implemented. 
 endif
+endif
+ifeq ($(OVS_PY_INSTALLED),0)
+	@echo OVS Python Script not installed. Installing now.
+	@$(SUDO) -E mkdir -p /usr/share/openvswitch/scripts/
+	@$(SUDO) -E cp ./cniovs/scripts/ovs-config.py /usr/share/openvswitch/scripts/.
 endif
 
 
