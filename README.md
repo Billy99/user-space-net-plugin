@@ -99,7 +99,7 @@ There are a few environmental variables used in this test. Here is an example:
 
 In order to test, a container with VPP 18.04 and vpp-app has been created:
 ```
-  docker pull bmcfall/vpp-centos-userspace-cni
+  docker pull bmcfall/vpp-centos-userspace-cni:0.2.0
 ```
 
 Setup your configuration file in your CNI directory. An example is
@@ -173,7 +173,7 @@ dumps interleaved.
 To verify the local config, in another window:
 ```
 vppctl show interface
-vppclt show mode
+vppctl show mode
 vppctl show memif
 ```
 
@@ -183,7 +183,7 @@ starts VPP and then runs *vpp-app*. Assuming the same notes above, to see what i
 cause *vpp-centos-userspace-cni* container to start in bash and skip the script, then run VPP and *vpp-app* manually: 
 ```
    cd $GOPATH/src/github.com/containernetworking/cni/scripts
-   sudo CNI_PATH=$CNI_PATH GOPATH=$GOPATH ./scripts/vpp-docker-run.sh -it --privileged vpp-centos-userspace-cni bash
+   sudo CNI_PATH=$CNI_PATH GOPATH=$GOPATH ./scripts/vpp-docker-run.sh -it --privileged bmcfall/vpp-centos-userspace-cni:0.2.0 bash
    
    /* Within Container: */
    vpp -c /etc/vpp/startup.conf &
