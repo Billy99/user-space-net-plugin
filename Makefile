@@ -13,8 +13,8 @@ endif
 # VPP Variables
 #
 
-VPPVERSION=1804
-VPPDOTVERSION=18.04
+VPPVERSION=19011
+VPPDOTVERSION=19.01.1
 
 ifeq ($(PKG),rpm)
 	VPPLIBDIR=/usr/lib64
@@ -108,7 +108,7 @@ ifeq ($(PKG),rpm)
 	@cd tmpvpp && rpm2cpio ./vpp-devel-$(VPPDOTVERSION)-1.x86_64.rpm | cpio -ivd \
 		./usr/include/vpp-api/client/vppapiclient.h
 	@cd tmpvpp && rpm2cpio ./vpp-lib-$(VPPDOTVERSION)-1.x86_64.rpm | cpio -ivd \
-		./usr/lib64/libvppapiclient.so.0.0.0
+		./usr/lib64/libvppapiclient.so*
 	@cd tmpvpp && rpm2cpio ./vpp-lib-$(VPPDOTVERSION)-1.x86_64.rpm | cpio -ivd \
 		./usr/share/vpp/api/interface.api.json \
 		./usr/share/vpp/api/l2.api.json \
@@ -123,7 +123,7 @@ else ifeq ($(PKG),deb)
 	@cd tmpvpp && dpkg-deb --fsys-tarfile vpp-dev-$(VPPDOTVERSION)-release_amd64-deb.deb | tar -x \
 		./usr/include/vpp-api/client/vppapiclient.h
 	@cd tmpvpp && dpkg-deb --fsys-tarfile vpp-lib-$(VPPDOTVERSION)-release_amd64-deb.deb | tar -x \
-		./usr/lib/x86_64-linux-gnu/libvppapiclient.so.0.0.0
+		./usr/lib/x86_64-linux-gnu/libvppapiclient.so*
 	@cd tmpvpp && dpkg-deb --fsys-tarfile vpp-$(VPPDOTVERSION)-release_amd64-deb.deb | tar -x \
 		./usr/share/vpp/api/interface.api.json \
 		./usr/share/vpp/api/l2.api.json \
@@ -136,9 +136,7 @@ endif
 	@$(SUDO) -E cp tmpvpp/usr/include/vpp-api/client/vppapiclient.h /usr/include/vpp-api/client/.
 	@$(SUDO) -E chown -R bin:bin /usr/include/vpp-api/
 	@echo   Installed /usr/include/vpp-api/client/vppapiclient.h
-	@$(SUDO) -E cp tmpvpp$(VPPLIBDIR)/libvppapiclient.so.0.0.0 $(VPPLIBDIR)/.
-	@$(SUDO) -E ln -s $(VPPLIBDIR)/libvppapiclient.so.0.0.0 $(VPPLIBDIR)/libvppapiclient.so
-	@$(SUDO) -E ln -s $(VPPLIBDIR)/libvppapiclient.so.0.0.0 $(VPPLIBDIR)/libvppapiclient.so.0
+	@$(SUDO) -E cp tmpvpp$(VPPLIBDIR)/libvppapiclient.so* $(VPPLIBDIR)/.
 	@$(SUDO) -E chown -R bin:bin $(VPPLIBDIR)/libvppapiclient.so*
 	@echo   Installed $(VPPLIBDIR)/libvppapiclient.so
 	@$(SUDO) -E mkdir -p /usr/share/vpp/api/
